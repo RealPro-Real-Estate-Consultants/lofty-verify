@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify Your Phone</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        max-width: 400px;
+        margin: 80px auto;
+        padding: 0 20px;
+        color: #222;
+      }
+      h2 { margin-bottom: 8px; }
+      p { color: #555; }
+      input[type="tel"],
+      input[type="number"] {
+        width: 100%;
+        padding: 10px;
+        font-size: 16px;
+        margin: 10px 0;
+        box-sizing: border-box;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+      button {
+        width: 100%;
+        padding: 12px;
+        background: #0066cc;
+        color: white;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 6px;
+        margin-top: 6px;
+      }
+      button:hover { background: #0052a3; }
+      button:disabled { background: #aaa; cursor: not-allowed; }
+      #resend-btn {
+        background: transparent;
+        color: #0066cc;
+        text-decoration: underline;
+        margin-top: 12px;
+      }
+      #resend-btn:hover { background: transparent; color: #0052a3; }
+      #verify-form,
+      #response-text { display: none; }
+      #response-text {
+        margin-top: 20px;
+        padding: 12px;
+        border-radius: 6px;
+        text-align: center;
+      }
+      .success { background: #e6f7e6; color: #1a7a1a; }
+      .error { background: #fde7e7; color: #b30000; }
+    </style>
+  </head>
+  <body>
+    <form id="phone-form">
+      <h2>Verify your phone number</h2>
+      <p>Enter your number to receive a 6-digit verification code by SMS.</p>
+      <input
+        type="tel"
+        id="phone-number-input"
+        placeholder="e.g. 19175550000"
+        required
+      />
+      <button type="submit">Send Code</button>
+    </form>
+
+    <form id="verify-form">
+      <h2>Enter your code</h2>
+      <p>We just texted a 6-digit code to <span id="masked-number"></span>.</p>
+      <input
+        type="number"
+        id="otp-input"
+        placeholder="e.g. 123456"
+        required
+      />
+      <button type="submit">Verify</button>
+      <button type="button" id="resend-btn">Resend code</button>
+    </form>
+
+    <div id="response-text"></div>
+    <script src="script.js"></script>
+  </body>
+</html>
