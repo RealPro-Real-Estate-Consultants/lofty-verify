@@ -29,8 +29,8 @@ app.post('/send-verification', async (req, res) => {
     console.log(`Verification sent to +${req.body.phoneNumber}: ${verification.status}`);
     res.sendStatus(200);
   } catch (e) {
-    console.error('send-verification error:', e.message);
-    res.status(500).send({ error: e.message });
+    console.error('send-verification error:', e);
+    res.status(500).send({ error: 'Unable to send verification code. Please try again.' });
   }
 });
 
@@ -62,8 +62,8 @@ app.post('/verify-otp', async (req, res) => {
 
     res.status(200).send(check);
   } catch (e) {
-    console.error('verify-otp error:', e.message);
-    res.status(500).send({ error: e.message });
+    console.error('verify-otp error:', e);
+    res.status(500).send({ error: 'Unable to verify code. Please try again.' });
   }
 });
 
