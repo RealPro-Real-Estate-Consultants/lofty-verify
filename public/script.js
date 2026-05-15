@@ -109,7 +109,10 @@ verifyForm.addEventListener('submit', async e => {
 
   if (response.ok && check.status === 'approved') {
     verifyForm.style.display = 'none';
-    showMessage('✅ Phone verified! You can close this window.', 'success');
+    showMessage('✅ Phone verified! Redirecting to everyswflhome.com...', 'success');
+    setTimeout(() => {
+      window.location.href = 'https://everyswflhome.com/';
+    }, 2500);
   } else if (response.ok && check.status === 'pending') {
     showMessage('❌ Incorrect code. Please try again.', 'error');
   } else if (response.ok && check.status === 'canceled') {
