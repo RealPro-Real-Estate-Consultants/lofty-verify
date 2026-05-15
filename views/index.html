@@ -44,8 +44,25 @@
         margin-top: 12px;
       }
       #resend-btn:hover { background: transparent; color: #0052a3; }
+      #phone-form,
       #verify-form,
-      #response-text { display: none; }
+      #response-text,
+      #loading-state { display: none; }
+      #loading-state {
+        text-align: center;
+        padding: 40px 20px;
+      }
+      .spinner {
+        display: inline-block;
+        width: 32px;
+        height: 32px;
+        border: 3px solid #e0e0e0;
+        border-top-color: #0066cc;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 16px;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
       #response-text {
         margin-top: 20px;
         padding: 12px;
@@ -57,6 +74,11 @@
     </style>
   </head>
   <body>
+    <div id="loading-state">
+      <div class="spinner"></div>
+      <p>Sending your verification code...</p>
+    </div>
+
     <form id="phone-form">
       <h2>Verify your phone number</h2>
       <p>Enter your number to receive a 6-digit verification code by SMS.</p>

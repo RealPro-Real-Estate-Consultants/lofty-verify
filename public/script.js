@@ -3,6 +3,7 @@ const verifyForm = document.getElementById('verify-form');
 const responseText = document.getElementById('response-text');
 const maskedNumber = document.getElementById('masked-number');
 const resendBtn = document.getElementById('resend-btn');
+const loadingState = document.getElementById('loading-state');
 let phoneNumber;
 
 function maskPhone(num) {
@@ -16,6 +17,13 @@ function showMessage(msg, type) {
   responseText.style.display = 'block';
 }
 
+function normalizeUSPhone(raw) {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (digits.length === 10) return '1' + digits;
+  if (digits.length === 11 && digits.startsWith('1')) return digits;
+  return digits;
+}
+
 async function sendCode() {
   const response = await fetch('/send-verification', {
     method: 'POST',
@@ -25,23 +33,58 @@ async function sendCode() {
   return response.ok;
 }
 
+function showPhoneForm() {
+  loadingState.style.display = 'none';
+  verifyForm.style.display = 'none';
+  phoneForm.style.display = 'block';
+}
+
+function showVerifyForm() {
+  loadingState.style.display = 'none';
+  phoneForm.style.display = 'none';
+  responseText.style.display = 'none';
+  maskedNumber.textContent = maskPhone(phoneNumber);
+  verifyForm.style.display = 'block';
+}
+
+async function autoSendFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const rawPhone = params.get('phone');
+  if (!rawPhone) return false;
+
+  const normalized = normalizeUSPhone(rawPhone);
+  if (normalized.length !== 11) return false;
+
+  phoneNumber = normalized;
+  loadingState.style.display = 'block';
+  phoneForm.style.display = 'none';
+
+  const ok = await sendCode();
+  if (ok) {
+    showVerifyForm();
+    return true;
+  }
+
+  showPhoneForm();
+  document.getElementById('phone-number-input').value = phoneNumber;
+  showMessage('Could not send code automatically. Please confirm your number and try again.', 'error');
+  return false;
+}
+
 phoneForm.addEventListener('submit', async e => {
   e.preventDefault();
   const submitBtn = phoneForm.querySelector('button[type="submit"]');
   submitBtn.disabled = true;
   submitBtn.textContent = 'Sending...';
 
-  phoneNumber = document.getElementById('phone-number-input').value.replace(/\D/g, '');
+  phoneNumber = normalizeUSPhone(document.getElementById('phone-number-input').value);
 
   const ok = await sendCode();
   submitBtn.disabled = false;
   submitBtn.textContent = 'Send Code';
 
   if (ok) {
-    maskedNumber.textContent = maskPhone(phoneNumber);
-    phoneForm.style.display = 'none';
-    verifyForm.style.display = 'block';
-    responseText.style.display = 'none';
+    showVerifyForm();
   } else {
     showMessage('Could not send code. Please check your number and try again.', 'error');
   }
@@ -86,4 +129,8 @@ resendBtn.addEventListener('click', async () => {
     ok ? 'New code sent.' : 'Could not resend code. Please try again.',
     ok ? 'success' : 'error'
   );
+});
+
+autoSendFromUrl().then(handled => {
+  if (!handled) showPhoneForm();
 });
