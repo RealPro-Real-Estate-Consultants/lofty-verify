@@ -10,9 +10,19 @@ const client = require('twilio')(
 const app = express();
 const port = process.env.PORT || 3000;
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(__dirname + '/public'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+
+app.use((req, res, next) => {
+  const allowed = ['https://everyswflhome.com', 'https://www.everyswflhome.com'];
+  const origin = req.headers.origin;
+  if (allowed.includes(origin)) res.header('Access-Control-Allow-Origin', origin);
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'index.html'));
