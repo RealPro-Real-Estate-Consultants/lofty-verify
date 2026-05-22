@@ -1,25 +1,25 @@
 /**
  * EverySWFLHome — Two-stage phone-verification flow for the Lofty register popup.
  *
- * Loaded from the Lofty Custom Style & Script bootstrapper:
+ * Loader (paste once in Lofty Custom Style & Script Script box):
  *   (function(){var s=document.createElement('script');
  *     s.src='https://lofty-verify-production-3aee.up.railway.app/otp.js?v=N';
  *     s.async=true;document.head.appendChild(s)})();
  *
  * Sequence:
- *   1. Register popup mounts → we hide its phone field and seed the input
- *      with "0000000000" so Lofty's submit button enables on consent-check.
- *   2. User clicks "Show Me Homes" → capture-phase click handler blocks the
- *      submit and opens the EXPLAINER modal with copy + icons + a phone input.
- *   3. User submits the explainer → we write the real phone into Lofty's
- *      hidden field (Vue-reactive setter) and re-click "Show Me Homes" with a
- *      bypass flag so Lofty submits the lead with the real phone number.
- *   4. Show Me Homes goes through → /send-verification fires → OTP modal opens
- *      with a 10-minute expiry countdown + Resend cooldown.
- *   5. On approved verification → success card with "Search Now" CTA.
+ *   1. Register popup mounts → we hide the phone field and seed it with a
+ *      placeholder so Lofty's submit button enables on consent-check.
+ *   2. User clicks "Show Me Homes" → we intercept, open the BRANDED PHONE
+ *      MODAL with value props + capture form.
+ *   3. User submits the phone modal → we write the real phone into Lofty's
+ *      hidden field, re-click submit with a bypass flag, close the Lofty
+ *      popup, and open the OTP code-entry modal.
+ *   4. OTP code-entry modal: 6-digit input, 10-min expiry countdown, Resend.
+ *   5. Approved → success → BRANDED SUCCESS MODAL with feature highlights
+ *      and Start Searching Homes CTA.
  *
- * Bump ?v= in the Lofty bootstrapper whenever this file is updated (or add
- * a no-cache header in index.js for /otp.js).
+ * Bump ?v= in the Lofty bootstrapper whenever this file is updated, or add
+ * a no-cache header in index.js for /otp.js.
  */
 
 // --- Leadsy AI tag (preserved from original file) ----------------------------
@@ -43,11 +43,17 @@
 
   // ---- Config --------------------------------------------------------------
   const BACKEND = 'https://lofty-verify-production-3aee.up.railway.app';
-  const ZAPIER_HOOK = '';            // optional Zap #2 catch-hook URL
-  const CODE_TTL_SECONDS = 600;      // Twilio Verify codes expire after 10 min
-  const RESEND_COOLDOWN = 30;        // seconds between resend clicks
+  const ZAPIER_HOOK = '';
+  const CODE_TTL_SECONDS = 600;
+  const RESEND_COOLDOWN = 30;
   const PHONE_PLACEHOLDER = '0000000000';
+  const COMPANY_PHONE = '239-202-0788';
+  const SEARCH_URL = '/listing';   // where the "Start Searching Homes" button takes the user
   const HEADERS = { 'Content-Type': 'application/json' };
+
+  // House photo for the off-market section of the success modal.
+  // Replace this URL with your own image if desired.
+  const HOUSE_PHOTO = 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=900&q=70';
 
   // ---- State ---------------------------------------------------------------
   let verified = false;
@@ -60,6 +66,14 @@
     return d.length === 10 ? '1' + d : d;
   }
 
+  function formatUSDisplay(digits) {
+    const d = (digits || '').replace(/\D/g, '').slice(0, 10);
+    if (d.length === 0) return '';
+    if (d.length <= 3) return '(' + d;
+    if (d.length <= 6) return '(' + d.slice(0, 3) + ') ' + d.slice(3);
+    return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+  }
+
   function post(path, body) {
     return fetch(BACKEND + path, {
       method: 'POST',
@@ -70,24 +84,8 @@
 
   function closeOverlay(overlay) {
     overlay.remove();
-    document.documentElement.style.overflow = '';
-  }
-
-  // Tear down Lofty's own register popup. Prefer clicking the popup's close
-  // icon (preserves any Lofty cleanup logic); fall back to detaching the node.
-  function closeLoftyRegister() {
-    const popup = document.querySelector('.sign-log.classic-one-step');
-    if (!popup) return;
-    const closeIcon = popup.querySelector('.iconfont.icon-close, .icon-close');
-    if (closeIcon) {
-      closeIcon.click();
-      // Belt-and-suspenders: if Lofty doesn't remove the node, do it ourselves.
-      setTimeout(function () {
-        const stillThere = document.querySelector('.sign-log.classic-one-step');
-        if (stillThere) stillThere.remove();
-      }, 300);
-    } else {
-      popup.remove();
+    if (!document.querySelector('.lof-overlay')) {
+      document.documentElement.style.overflow = '';
     }
   }
 
@@ -97,8 +95,6 @@
     return m + ':' + String(s).padStart(2, '0');
   }
 
-  // Vue-friendly value setter: write through the native HTMLInputElement
-  // setter and dispatch input/change events so Vue picks the change up.
   function setReactiveValue(input, value) {
     const proto = Object.getPrototypeOf(input);
     const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
@@ -107,33 +103,49 @@
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
-  // ---- SVG illustrations ---------------------------------------------------
-  const PHONE_SVG =
-    '<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-      '<rect x="16" y="6" width="32" height="52" rx="6" fill="#3e5da4"/>' +
-      '<rect x="20" y="12" width="24" height="36" rx="2" fill="#fff"/>' +
-      '<circle cx="32" cy="53" r="2" fill="#fff"/>' +
-      '<rect x="24" y="18" width="16" height="4" rx="1" fill="#3e5da4" opacity=".25"/>' +
-      '<rect x="24" y="26" width="12" height="3" rx="1" fill="#3e5da4" opacity=".25"/>' +
-      '<rect x="24" y="32" width="14" height="3" rx="1" fill="#3e5da4" opacity=".25"/>' +
-      '<g transform="translate(40 4)">' +
-        '<circle cx="10" cy="10" r="10" fill="#fcce17"/>' +
-        '<text x="10" y="14" text-anchor="middle" font-size="11" font-weight="700" fill="#000">SMS</text>' +
-      '</g>' +
-    '</svg>';
+  function closeLoftyRegister() {
+    const popup = document.querySelector('.sign-log.classic-one-step');
+    if (!popup) return;
+    const closeIcon = popup.querySelector('.iconfont.icon-close, .icon-close');
+    if (closeIcon) {
+      closeIcon.click();
+      setTimeout(function () {
+        const stillThere = document.querySelector('.sign-log.classic-one-step');
+        if (stillThere) stillThere.remove();
+      }, 300);
+    } else {
+      popup.remove();
+    }
+  }
 
-  const LOCK_SVG =
-    '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-      '<path d="M6 9V6a4 4 0 1 1 8 0v3h1a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h1zm2 0h4V6a2 2 0 1 0-4 0v3z" fill="#3e5da4"/>' +
-    '</svg>';
+  // ---- Inline SVG icons ----------------------------------------------------
+  const ICONS = {
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
+    search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><line x1="10.85" y1="12.15" x2="22" y2="1"/><line x1="18" y1="5" x2="22" y2="9"/><line x1="15" y1="8" x2="19" y2="12"/></svg>',
+    heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
+    bellDollar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M12 11v4M10.5 13.5h3"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
+    plane: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.7 2.3a1 1 0 0 0-1.02-.24L2.65 8.04a1 1 0 0 0-.06 1.86l6.85 2.92 2.92 6.85a1 1 0 0 0 1.86-.06l5.98-18.03a1 1 0 0 0-.5-1.28zM10.5 13.5l-4.3-1.84L18.6 6.5l-8.1 7zm1 1l7-8.1-5.16 12.4-1.84-4.3z"/></svg>',
+    shield: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.4-1.4L10 14.2l6.6-6.6L18 9l-8 8z"/></svg>',
+    checkBig: '<svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="#fff" stroke="#22c55e" stroke-width="3"/><path d="M22 41l13 13 24-26" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+    keyOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 9.5a4 4 0 1 1-5 5l-7 7v-3l1-1 6-6"/><path d="M14.5 9.5L19 5l-2-2-4.5 4.5"/></svg>',
+    checkSm: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#f97316"/><path d="M4.5 8.2l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    mapPin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-2 2-3-3-3 3 3-3-3-3 6-6 4 4M13 7l3-3 6 6-4 4-4-4"/><path d="M14 14l3 3"/></svg>',
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+  };
 
-  const CHECK_SVG =
-    '<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
-      '<circle cx="10" cy="10" r="10" fill="#3e5da4"/>' +
-      '<path d="M5.5 10.5l3 3 6-6" stroke="#fff" stroke-width="2.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '</svg>';
+  function svg(name, cls) {
+    return '<span class="lof-svg' + (cls ? ' ' + cls : '') + '">' + ICONS[name] + '</span>';
+  }
 
-  // ---- Register popup: hide phone field + seed placeholder -----------------
+  // ==========================================================================
+  //  Register-popup setup: hide phone field, seed placeholder
+  // ==========================================================================
   function setupRegisterPopup() {
     const phoneInput = document.querySelector('.pop-sign-log.register input[name="phone"]');
     if (!phoneInput || phoneInput.dataset.otpReady === '1') return;
@@ -147,58 +159,129 @@
     }
   }
 
-  // ---- Explainer modal -----------------------------------------------------
-  function buildExplainer(submitBtn) {
+  // ==========================================================================
+  //  Modal 1: branded phone-number capture screen
+  // ==========================================================================
+  function buildPhoneModal(submitBtn) {
     const overlay = document.createElement('div');
-    overlay.id = 'explO';
-    overlay.innerHTML =
-      '<div class="explB"></div>' +
-      '<div class="explC">' +
-        '<button class="explX" type="button" aria-label="Close">&times;</button>' +
-        '<div class="explIcon">' + PHONE_SVG + '</div>' +
-        '<h3>One More Step &mdash; Verify Your Phone</h3>' +
-        '<p class="explSub">To activate your free account and unlock listings, ' +
-          'we\'ll send a quick verification code to your mobile phone.</p>' +
-        '<div class="explBenefits">' +
-          '<div class="explBen">' + CHECK_SVG + '<span>Instant alerts on new listings that match your search</span></div>' +
-          '<div class="explBen">' + CHECK_SVG + '<span>Transaction updates and direct messages from your agent</span></div>' +
-          '<div class="explBen">' + CHECK_SVG + '<span>Confirms you\'re a real buyer so we can serve you better</span></div>' +
-        '</div>' +
-        '<div class="explHow">' +
-          '<h4>How it works</h4>' +
-          '<ol>' +
-            '<li>Enter your mobile phone number below.</li>' +
-            '<li>We\'ll text you a one-time <b>6-digit code</b>.</li>' +
-            '<li>Enter the code on the next screen &mdash; that\'s it.</li>' +
-          '</ol>' +
-        '</div>' +
-        '<label class="explLabel" for="explPhone">Mobile phone number</label>' +
-        '<input id="explPhone" type="tel" inputmode="numeric" autocomplete="tel" ' +
-               'placeholder="(239) 555-1234">' +
-        '<p class="explErr" id="explErr"></p>' +
-        '<button id="explGo" type="button">Send My Code</button>' +
-        '<div class="explPrivacy">' + LOCK_SVG +
-          '<span>Standard message and data rates may apply. Reply STOP to opt out. ' +
-          '<b>Your number is private and never sold.</b></span>' +
-        '</div>' +
-      '</div>';
+    overlay.className = 'lof-overlay';
+    overlay.id = 'lof-phone-modal';
+    overlay.innerHTML = `
+      <div class="lof-backdrop"></div>
+      <div class="lof-card lof-phone-card">
+        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
+        <div class="lof-phone-grid">
+          <!-- LEFT: value props -->
+          <div class="lof-phone-left">
+            <h2 class="lof-h2">Access SW Florida<br>Homes Like an Agent</h2>
+            <p class="lof-sub">Enter your phone number and we'll text you a 6-digit code to continue.</p>
+
+            <ul class="lof-benefits">
+              <li>
+                <span class="lof-bicon">${ICONS.search}</span>
+                <div>
+                  <h4>Advanced MLS Filters</h4>
+                  <p>Search like an agent with powerful filters Zillow doesn't offer.</p>
+                </div>
+              </li>
+              <li>
+                <span class="lof-bicon">${ICONS.key}</span>
+                <div>
+                  <h4>Access Exclusive Opportunities</h4>
+                  <p>Get access to pre-market, off-market, and private seller homes.</p>
+                </div>
+              </li>
+              <li>
+                <span class="lof-bicon">${ICONS.heart}</span>
+                <div>
+                  <h4>Save Favorites &amp; Get Alerts</h4>
+                  <p>Save homes, create custom searches, and get instant updates.</p>
+                </div>
+              </li>
+              <li>
+                <span class="lof-bicon">${ICONS.bellDollar}</span>
+                <div>
+                  <h4>Instant Price Drop Notifications</h4>
+                  <p>Be the first to know when prices drop on homes you love.</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <!-- RIGHT: phone capture -->
+          <div class="lof-phone-right">
+            <div class="lof-phone-illu">${ICONS.phone}</div>
+            <h3 class="lof-h3">Get Your 6-Digit Code</h3>
+            <p class="lof-sub-sm">Enter your number below and we'll text you a code right away.</p>
+
+            <div class="lof-tel-row">
+              <span class="lof-flag" aria-hidden="true">🇺🇸</span>
+              <input id="lof-phone" type="tel" inputmode="numeric" autocomplete="tel"
+                     placeholder="(XXX) XXX-XXXX" maxlength="14">
+            </div>
+            <p class="lof-err" id="lof-phone-err"></p>
+
+            <button id="lof-send" type="button" class="lof-btn-primary">
+              <span class="lof-svg lof-plane">${ICONS.plane}</span>
+              Text Me the Code
+            </button>
+
+            <p class="lof-fineprint">
+              By providing your phone number you agree to receive transactional
+              and marketing texts via SMS.
+            </p>
+
+            <div class="lof-or"><span>OR</span></div>
+
+            <div class="lof-privacy-box">
+              <div class="lof-privacy-head">
+                <span class="lof-svg lof-shield">${ICONS.shield}</span>
+                <strong>Your Privacy Matters</strong>
+              </div>
+              <ul>
+                <li>No spam. No pressure.</li>
+                <li>Opt out anytime.</li>
+                <li>Your information is never sold to third parties like the national real estate portals.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- bottom CTA bar -->
+        <div class="lof-bottom-bar">
+          <div class="lof-bar-left">
+            <span class="lof-svg lof-bar-chat">${ICONS.chat}</span>
+            <div>
+              <strong>Questions? Text us anytime.</strong>
+              <span class="lof-bar-sub">We're local and happy to help!</span>
+            </div>
+          </div>
+          <a href="tel:+1${COMPANY_PHONE.replace(/-/g, '')}" class="lof-bar-phone">
+            <span class="lof-svg">${ICONS.phone}</span>
+            ${COMPANY_PHONE}
+          </a>
+        </div>
+      </div>
+    `;
     document.body.appendChild(overlay);
     document.documentElement.style.overflow = 'hidden';
 
-    const phoneEl = overlay.querySelector('#explPhone');
-    const errEl   = overlay.querySelector('#explErr');
-    const goBtn   = overlay.querySelector('#explGo');
-    const xBtn    = overlay.querySelector('.explX');
+    const phoneEl = overlay.querySelector('#lof-phone');
+    const errEl   = overlay.querySelector('#lof-phone-err');
+    const sendBtn = overlay.querySelector('#lof-send');
+    const closeBtn = overlay.querySelector('.lof-close');
 
-    function dismiss() {
-      closeOverlay(overlay);
-    }
-    xBtn.onclick = dismiss;
+    closeBtn.onclick = function () { closeOverlay(overlay); };
+
+    // Live phone formatting
+    phoneEl.addEventListener('input', function () {
+      const display = formatUSDisplay(phoneEl.value);
+      if (display !== phoneEl.value) phoneEl.value = display;
+    });
 
     let submitting = false;
-    goBtn.onclick = function () {
-      if (submitting) return;                              // guard double-clicks
-
+    sendBtn.onclick = function () {
+      if (submitting) return;
       const phone = normalizePhone(phoneEl.value);
       if (phone.length < 11) {
         errEl.textContent = 'Please enter a valid US mobile number with area code.';
@@ -207,97 +290,85 @@
       }
       errEl.textContent = '';
       submitting = true;
-      goBtn.disabled = true;
-      goBtn.textContent = 'Sending...';
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = 'Sending...';
 
-      // Write the real phone into Lofty's hidden field
       const loftyPhone = document.querySelector('.pop-sign-log.register input[name="phone"]');
       if (loftyPhone) setReactiveValue(loftyPhone, phone);
 
-      // Close explainer
       closeOverlay(overlay);
 
-      // Re-click Show Me Homes with bypass flag so Lofty submits the lead
       bypassRegister = true;
       setTimeout(function () {
         submitBtn.click();
-
-        // Close Lofty's register popup once it has had time to submit
         setTimeout(closeLoftyRegister, 400);
-
-        // After Lofty processes the click, open the OTP modal
         setTimeout(function () { fireOTP(phone); }, 600);
-
-        // Reset bypass shortly after for safety
         setTimeout(function () { bypassRegister = false; }, 1500);
       }, 50);
     };
 
     phoneEl.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); goBtn.click(); }
+      if (e.key === 'Enter') { e.preventDefault(); sendBtn.click(); }
     });
 
     setTimeout(function () { phoneEl.focus(); }, 50);
   }
 
-  // ---- OTP modal -----------------------------------------------------------
+  // ==========================================================================
+  //  Modal 2: OTP code-entry (kept compact, unchanged styling from prior)
+  // ==========================================================================
   function buildOTPModal(phone) {
     const overlay = document.createElement('div');
-    overlay.id = 'otpO';
-    overlay.innerHTML =
-      '<div class="otpB"></div>' +
-      '<div class="otpC">' +
-        '<h3>Verify your phone</h3>' +
-        '<p>We texted a 6-digit code to <b>+' + phone + '</b>.</p>' +
-        '<input id="otpI" type="tel" inputmode="numeric" maxlength="6" ' +
-               'placeholder="123456" autocomplete="one-time-code">' +
-        '<p id="otpT" class="otpT">Code expires in <b>10:00</b></p>' +
-        '<button id="otpG">Verify</button>' +
-        '<button id="otpR" type="button">Resend code</button>' +
-        '<p id="otpM"></p>' +
-      '</div>';
+    overlay.className = 'lof-overlay';
+    overlay.id = 'lof-otp-modal';
+    overlay.innerHTML = `
+      <div class="lof-backdrop"></div>
+      <div class="lof-card lof-otp-card">
+        <h3 class="lof-h3 lof-center">Verify your phone</h3>
+        <p class="lof-sub-sm lof-center">We texted a 6-digit code to <b>+${phone}</b>.</p>
+        <input id="lof-otp" type="tel" inputmode="numeric" maxlength="6"
+               placeholder="123456" autocomplete="one-time-code">
+        <p id="lof-ttl" class="lof-ttl">Code expires in <b>10:00</b></p>
+        <button id="lof-verify" class="lof-btn-primary lof-btn-block">Verify</button>
+        <button id="lof-resend" type="button" class="lof-btn-secondary lof-btn-block">Resend code</button>
+        <p id="lof-msg" class="lof-msg"></p>
+      </div>
+    `;
     document.body.appendChild(overlay);
     document.documentElement.style.overflow = 'hidden';
 
-    const card      = overlay.querySelector('.otpC');
-    const codeInput = overlay.querySelector('#otpI');
-    const msg       = overlay.querySelector('#otpM');
-    const verifyBtn = overlay.querySelector('#otpG');
-    const resendBtn = overlay.querySelector('#otpR');
-    const timerEl   = overlay.querySelector('#otpT');
+    const codeInput = overlay.querySelector('#lof-otp');
+    const msg       = overlay.querySelector('#lof-msg');
+    const verifyBtn = overlay.querySelector('#lof-verify');
+    const resendBtn = overlay.querySelector('#lof-resend');
+    const timerEl   = overlay.querySelector('#lof-ttl');
 
     let ttl = CODE_TTL_SECONDS;
     let expiryTimer = null;
 
     function setMessage(text, kind) {
       msg.textContent = text;
-      msg.style.color =
-        kind === 'ok'   ? '#1c8a3a' :
-        kind === 'info' ? '#3e5da4' :
-                          '#c33';
+      msg.style.color = kind === 'ok' ? '#1c8a3a' : kind === 'info' ? '#3e5da4' : '#c33';
     }
-
     function tickExpiry() {
       if (ttl <= 0) {
         clearInterval(expiryTimer);
-        timerEl.innerHTML = '<b>Code expired</b> &mdash; tap Resend';
-        timerEl.classList.add('otpExp');
+        timerEl.innerHTML = '<b>Code expired</b> — tap Resend';
+        timerEl.classList.add('lof-ttl-exp');
         verifyBtn.disabled = true;
         return;
       }
       timerEl.innerHTML = 'Code expires in <b>' + formatMMSS(ttl) + '</b>';
       ttl--;
     }
-
     function startExpiryCountdown() {
       ttl = CODE_TTL_SECONDS;
       clearInterval(expiryTimer);
-      timerEl.classList.remove('otpExp');
+      timerEl.classList.remove('lof-ttl-exp');
       verifyBtn.disabled = false;
       tickExpiry();
       expiryTimer = setInterval(tickExpiry, 1000);
     }
-
     function startResendCooldown(seconds) {
       resendBtn.disabled = true;
       let left = seconds;
@@ -313,19 +384,6 @@
       })();
     }
 
-    function renderSuccess() {
-      clearInterval(expiryTimer);
-      card.innerHTML =
-        '<div class="otpCheck">&#10003;</div>' +
-        '<h3>Phone Verified</h3>' +
-        '<p>You\'re all set! Now you can search properties across Southwest Florida.</p>' +
-        '<button id="otpS">Search Now</button>';
-      card.querySelector('#otpS').onclick = function () {
-        closeLoftyRegister();   // safety net if Lofty popup is still around
-        closeOverlay(overlay);
-      };
-    }
-
     resendBtn.onclick = function () {
       setMessage('New code sent.', 'ok');
       post('/send-verification', { phoneNumber: phone }).catch(function () {
@@ -337,24 +395,22 @@
 
     verifyBtn.onclick = async function () {
       const code = codeInput.value.trim();
-      if (code.length !== 6) {
-        setMessage('Enter the 6-digit code.', 'err');
-        return;
-      }
+      if (code.length !== 6) { setMessage('Enter the 6-digit code.', 'err'); return; }
       setMessage('Checking...', 'info');
       try {
         const res = await post('/verify-otp', { phoneNumber: phone, otp: code });
         const data = await res.json();
         if (data && data.status === 'approved') {
           verified = true;
+          clearInterval(expiryTimer);
           if (ZAPIER_HOOK) {
             fetch(ZAPIER_HOOK, {
-              method: 'POST',
-              headers: HEADERS,
+              method: 'POST', headers: HEADERS,
               body: JSON.stringify({ phoneNumber: phone, status: 'approved' })
             }).catch(function () {});
           }
-          renderSuccess();
+          closeOverlay(overlay);
+          buildSuccessModal();
         } else {
           setMessage('Incorrect or expired code. Tap Resend for a new one.', 'err');
         }
@@ -369,12 +425,137 @@
   }
 
   function fireOTP(phone) {
-    if (verified || document.getElementById('otpO')) return;
+    if (verified || document.getElementById('lof-otp-modal')) return;
     post('/send-verification', { phoneNumber: phone }).catch(function () {});
     buildOTPModal(phone);
   }
 
-  // ---- DOM scan + hook -----------------------------------------------------
+  // ==========================================================================
+  //  Modal 3: branded success screen
+  // ==========================================================================
+  function buildSuccessModal() {
+    closeLoftyRegister();   // safety net
+
+    const overlay = document.createElement('div');
+    overlay.className = 'lof-overlay';
+    overlay.id = 'lof-success-modal';
+    overlay.innerHTML = `
+      <div class="lof-backdrop"></div>
+      <div class="lof-card lof-success-card">
+        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
+
+        <!-- Hero -->
+        <div class="lof-succ-hero">
+          <div class="lof-check">${ICONS.checkBig}</div>
+          <h2 class="lof-h2 lof-center">Access SW Florida<br>Homes Like an Agent</h2>
+          <p class="lof-succ-sub">Advanced Home Search Activated</p>
+          <p class="lof-sub lof-center">
+            Search Southwest Florida homes with powerful MLS-based filters
+            most public websites don't offer.
+          </p>
+        </div>
+
+        <!-- 4-up feature row -->
+        <div class="lof-feat-row">
+          <div class="lof-feat">
+            <span class="lof-feat-ic">${ICONS.search}</span>
+            <h4>Advanced Search</h4>
+            <p>Powerful filters to find exactly what you're looking for</p>
+          </div>
+          <div class="lof-feat">
+            <span class="lof-feat-ic">${ICONS.heart}</span>
+            <h4>Save Favorites</h4>
+            <p>Save homes and create custom searches to come back to anytime</p>
+          </div>
+          <div class="lof-feat">
+            <span class="lof-feat-ic">${ICONS.bellDollar}</span>
+            <h4>Instant Updates</h4>
+            <p>Be the first to know when new homes match your criteria</p>
+          </div>
+          <div class="lof-feat">
+            <span class="lof-feat-ic">${ICONS.chart}</span>
+            <h4>Market Insights</h4>
+            <p>Real insights to help you make smart, confident decisions</p>
+          </div>
+        </div>
+
+        <!-- Primary CTA -->
+        <button id="lof-search" class="lof-btn-primary lof-btn-hero">
+          <span class="lof-svg">${ICONS.house}</span>
+          <span class="lof-btn-stack">
+            <span>Start Searching Homes</span>
+            <small>Advanced Home Search Access Unlocked</small>
+          </span>
+        </button>
+
+        <!-- Off-market section -->
+        <div class="lof-offmkt">
+          <div class="lof-offmkt-content">
+            <div class="lof-offmkt-head">
+              <span class="lof-svg lof-offmkt-ic">${ICONS.keyOff}</span>
+              <h3>Want Access to Homes That <span class="lof-stk">Never Hit Zillow?</span></h3>
+            </div>
+            <p>Our local team can help you uncover opportunities you won't find on the big real estate portals.</p>
+            <div class="lof-offmkt-grid">
+              <div>${ICONS.checkSm}<span>Off-market homes</span></div>
+              <div>${ICONS.checkSm}<span>Private seller opportunities</span></div>
+              <div>${ICONS.checkSm}<span>Pre-market opportunities</span></div>
+              <div>${ICONS.checkSm}<span>Coming soon listings</span></div>
+              <div>${ICONS.checkSm}<span>Estate sales</span></div>
+              <div>${ICONS.checkSm}<span>Investor opportunities</span></div>
+            </div>
+            <button id="lof-offmkt-btn" class="lof-btn-dark">
+              <span class="lof-svg">${ICONS.key}</span>
+              <span class="lof-btn-stack">
+                <span>Find Off-Market Homes</span>
+                <small>Let our local experts find opportunities for you</small>
+              </span>
+            </button>
+          </div>
+          <div class="lof-offmkt-img" style="background-image:url('${HOUSE_PHOTO}')"></div>
+        </div>
+
+        <!-- Local. Proactive. Connected. -->
+        <div class="lof-lpc">
+          <h4>Local. Proactive. Connected.</h4>
+          <p>We work behind the scenes to find opportunities others don't even know about.</p>
+          <div class="lof-lpc-row">
+            <div>
+              <span class="lof-lpc-ic">${ICONS.mapPin}</span>
+              <strong>Local Experts</strong>
+              <span class="lof-lpc-sub">Who know the market</span>
+            </div>
+            <div>
+              <span class="lof-lpc-ic">${ICONS.handshake}</span>
+              <strong>Strong Agent</strong>
+              <span class="lof-lpc-sub">Relationships</span>
+            </div>
+            <div>
+              <span class="lof-lpc-ic">${ICONS.eye}</span>
+              <strong>Access You</strong>
+              <span class="lof-lpc-sub">Won't Find Online</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="lof-footnote">Your information is secure and will never be shared.</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.documentElement.style.overflow = 'hidden';
+
+    overlay.querySelector('.lof-close').onclick = function () { closeOverlay(overlay); };
+    overlay.querySelector('#lof-search').onclick = function () {
+      window.location.href = SEARCH_URL;
+    };
+    overlay.querySelector('#lof-offmkt-btn').onclick = function () {
+      window.location.href = '/contact';
+    };
+  }
+
+  // ==========================================================================
+  //  Hook the Lofty register popup
+  // ==========================================================================
   function scan() {
     setupRegisterPopup();
 
@@ -384,284 +565,276 @@
         if (hooked.has(btn)) return;
         hooked.add(btn);
         btn.addEventListener('click', function (e) {
-          // Allow programmatic re-clicks from the explainer flow
           if (bypassRegister) return;
-
           const wrap = btn.closest('.submit');
           if (wrap && wrap.classList.contains('disabled')) return;
-
-          // Block Lofty's submit and show the explainer instead
           e.preventDefault();
           e.stopImmediatePropagation();
-          buildExplainer(btn);
+          buildPhoneModal(btn);
         }, true);
       });
   }
-
   setInterval(scan, 700);
   scan();
 
-  // ---- Styles --------------------------------------------------------------
+  // ==========================================================================
+  //  Styles
+  // ==========================================================================
   const style = document.createElement('style');
   style.textContent = `
-    /* ============= Shared overlay primitives ============= */
-    #explO, #otpO {
-      position: fixed;
-      inset: 0;
-      z-index: 2147483647;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-family: var(--font-normal, "Helvetica Neue", Helvetica, Arial, sans-serif);
+    /* ===== Shared primitives ===== */
+    .lof-overlay {
+      position: fixed; inset: 0; z-index: 2147483647;
+      display: flex; align-items: center; justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1f2a44;
     }
-    #explO .explB, #otpO .otpB {
-      position: absolute;
-      inset: 0;
-      background: rgba(20, 20, 33, 0.72);
+    .lof-overlay * { box-sizing: border-box; }
+    .lof-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(2px);
+    }
+    .lof-card {
+      position: relative; background: #fff; border-radius: 16px;
+      box-shadow: 0 30px 70px rgba(0,0,0,.45);
+      max-height: 94vh; overflow-y: auto; overflow-x: hidden;
+    }
+    .lof-card::-webkit-scrollbar { width: 8px; }
+    .lof-card::-webkit-scrollbar-thumb { background: #d0d6e2; border-radius: 4px; }
+    .lof-close {
+      position: absolute; top: 14px; right: 14px;
+      width: 32px; height: 32px; border: 0; border-radius: 50%;
+      background: rgba(0,0,0,0.04); color: #5a6478;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      z-index: 2;
+    }
+    .lof-close:hover { background: rgba(0,0,0,0.08); color: #1f2a44; }
+    .lof-close svg { width: 16px; height: 16px; }
+    .lof-svg { display: inline-flex; align-items: center; justify-content: center; }
+    .lof-svg svg { width: 100%; height: 100%; display: block; }
+    .lof-center { text-align: center; }
+    .lof-h2 { font-size: 30px; line-height: 1.2; font-weight: 800; margin: 0 0 10px; color: #0f1b3d; }
+    .lof-h3 { font-size: 20px; line-height: 1.3; font-weight: 700; margin: 0 0 6px; color: #0f1b3d; }
+    .lof-sub { font-size: 14.5px; color: #4d586e; line-height: 1.55; margin: 0 0 16px; }
+    .lof-sub-sm { font-size: 13.5px; color: #4d586e; line-height: 1.5; margin: 0 0 14px; }
+    .lof-err { min-height: 16px; font-size: 12.5px; color: #c33; margin: 4px 0 8px; }
+    .lof-fineprint { font-size: 11.5px; color: #8b93a7; line-height: 1.5; margin: 10px 0 0; }
+    .lof-btn-primary {
+      width: 100%; padding: 14px 16px; border: 0; border-radius: 10px;
+      background: #2b5fdb; color: #fff; font-size: 15px; font-weight: 700;
+      cursor: pointer; transition: background .2s;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .lof-btn-primary:hover:not(:disabled) { background: #1f4cb8; }
+    .lof-btn-primary:disabled { background: #b8c5e0; cursor: not-allowed; }
+    .lof-btn-primary .lof-plane { width: 16px; height: 16px; color: #fff; }
+    .lof-btn-secondary {
+      width: 100%; padding: 11px; border: 1px solid #d0d6e2; border-radius: 8px;
+      background: #fff; color: #2b5fdb; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .lof-btn-secondary:hover:not(:disabled) { background: #f5f7fb; }
+    .lof-btn-secondary:disabled { color: #8b93a7; border-color: #e5e8ee; cursor: not-allowed; }
+    .lof-btn-block { margin-top: 8px; }
+
+    /* ===== Phone modal ===== */
+    .lof-phone-card { width: 92%; max-width: 920px; padding: 0; overflow: hidden; }
+    .lof-phone-grid { display: grid; grid-template-columns: 1.15fr 1fr; }
+    .lof-phone-left { padding: 36px 32px 24px; background: #fff; }
+    .lof-phone-right {
+      padding: 36px 32px 24px;
+      background: linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
+      border-left: 1px solid #eef2f9;
+    }
+    .lof-benefits { list-style: none; margin: 6px 0 0; padding: 0; }
+    .lof-benefits li {
+      display: flex; gap: 14px; padding: 12px 0;
+      align-items: flex-start;
+    }
+    .lof-benefits li + li { border-top: 1px solid #eef2f9; }
+    .lof-bicon {
+      width: 38px; height: 38px; flex-shrink: 0;
+      border-radius: 50%; background: #e8eefc;
+      display: flex; align-items: center; justify-content: center;
+      color: #2b5fdb;
+    }
+    .lof-bicon svg { width: 19px; height: 19px; }
+    .lof-benefits h4 { margin: 2px 0 4px; font-size: 15px; font-weight: 700; color: #0f1b3d; }
+    .lof-benefits p { margin: 0; font-size: 13px; color: #5a6478; line-height: 1.5; }
+    .lof-phone-illu {
+      width: 60px; height: 60px; margin: 0 auto 14px;
+      color: #2b5fdb;
+    }
+    .lof-phone-illu svg { width: 100%; height: 100%; }
+    .lof-tel-row {
+      display: flex; gap: 8px; align-items: stretch;
+      border: 1px solid #d0d6e2; border-radius: 10px; padding: 0 6px 0 12px;
+      background: #fff;
+    }
+    .lof-tel-row:focus-within {
+      border-color: #2b5fdb;
+      box-shadow: 0 0 0 3px rgba(43, 95, 219, 0.15);
+    }
+    .lof-flag { font-size: 20px; display: flex; align-items: center; padding-right: 8px; border-right: 1px solid #eef2f9; }
+    .lof-tel-row input {
+      flex: 1; border: 0; outline: none; padding: 12px 8px;
+      font-size: 16px; color: #1f2a44; background: transparent;
+    }
+    .lof-or {
+      position: relative; text-align: center; margin: 18px 0 14px;
+      color: #8b93a7; font-size: 12px; font-weight: 600; letter-spacing: 2px;
+    }
+    .lof-or:before, .lof-or:after {
+      content: ''; position: absolute; top: 50%; width: 38%; height: 1px; background: #eef2f9;
+    }
+    .lof-or:before { left: 0; }
+    .lof-or:after { right: 0; }
+    .lof-or span { background: transparent; padding: 0 8px; }
+    .lof-privacy-box {
+      background: #fff8e7; border: 1px solid #ffe8a8;
+      border-radius: 10px; padding: 14px 16px;
+    }
+    .lof-privacy-head {
+      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+    }
+    .lof-shield { width: 22px; height: 22px; color: #f59e0b; }
+    .lof-privacy-head strong { font-size: 14px; color: #92660b; font-weight: 700; }
+    .lof-privacy-box ul { list-style: none; margin: 0; padding: 0; font-size: 12.5px; color: #6b5414; }
+    .lof-privacy-box li { padding: 3px 0; line-height: 1.45; }
+    .lof-privacy-box li:before { content: '✓ '; color: #f59e0b; font-weight: bold; margin-right: 4px; }
+
+    .lof-bottom-bar {
+      grid-column: 1 / -1;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 14px 24px; background: #14213d; color: #fff;
+      flex-wrap: wrap;
+    }
+    .lof-bar-left { display: flex; align-items: center; gap: 12px; }
+    .lof-bar-chat { width: 24px; height: 24px; color: #fcce17; }
+    .lof-bar-left strong { display: block; font-size: 14px; }
+    .lof-bar-sub { font-size: 12px; color: #b8c5e0; }
+    .lof-bar-phone {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #fcce17; color: #14213d; text-decoration: none;
+      padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: 14px;
+    }
+    .lof-bar-phone .lof-svg { width: 16px; height: 16px; }
+    .lof-bar-phone:hover { background: #e8bb14; }
+
+    /* Phone modal grid → bottom bar; wrap into the same flow */
+    .lof-phone-card > .lof-phone-grid { }
+
+    @media (max-width: 760px) {
+      .lof-phone-grid { grid-template-columns: 1fr; }
+      .lof-phone-right { border-left: 0; border-top: 1px solid #eef2f9; }
+      .lof-h2 { font-size: 24px; }
     }
 
-    /* ============= Explainer modal ============= */
-    #explO .explC {
-      position: relative;
-      background: #fff;
-      padding: 36px 32px 28px;
-      border-radius: 14px;
-      max-width: 460px;
-      width: 92%;
-      max-height: 92vh;
-      overflow-y: auto;
-      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.45);
-      text-align: center;
+    /* ===== OTP modal ===== */
+    .lof-otp-card { width: 90%; max-width: 400px; padding: 28px; text-align: center; }
+    #lof-otp {
+      width: 100%; padding: 12px; font-size: 22px; letter-spacing: 8px;
+      text-align: center; border: 1px solid #d0d6e2; border-radius: 8px;
+      margin: 14px 0 6px; box-sizing: border-box; color: #1f2a44;
     }
-    #explO .explX {
-      position: absolute;
-      top: 10px;
-      right: 14px;
-      background: transparent;
-      border: 0;
-      font-size: 26px;
-      color: #8b93a7;
-      cursor: pointer;
-      line-height: 1;
-      padding: 4px 8px;
-    }
-    #explO .explX:hover { color: #37465a; }
-    #explO .explIcon {
-      width: 72px;
-      height: 72px;
-      margin: 0 auto 14px;
-    }
-    #explO .explIcon svg { width: 100%; height: 100%; }
-    #explO h3 {
-      margin: 0 0 8px;
-      font-size: 22px;
-      font-family: var(--font-bold, "Helvetica Neue", Helvetica, Arial, sans-serif);
-      color: #3e5da4;
-    }
-    #explO .explSub {
-      margin: 0 0 18px;
-      font-size: 14px;
-      color: #37465a;
-      line-height: 1.55;
-    }
-    #explO .explBenefits {
-      text-align: left;
-      background: #f5f7fb;
-      border-radius: 10px;
-      padding: 14px 16px;
-      margin: 0 0 18px;
-    }
-    #explO .explBen {
-      display: flex;
-      align-items: flex-start;
-      gap: 10px;
-      font-size: 13.5px;
-      color: #37465a;
-      line-height: 1.45;
-      padding: 4px 0;
-    }
-    #explO .explBen svg {
-      width: 18px;
-      height: 18px;
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-    #explO .explHow {
-      text-align: left;
-      margin: 0 0 16px;
-    }
-    #explO .explHow h4 {
-      margin: 0 0 6px;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      color: #8b93a7;
-      font-family: var(--font-bold, sans-serif);
-    }
-    #explO .explHow ol {
-      margin: 0;
-      padding-left: 20px;
-      font-size: 13.5px;
-      color: #37465a;
-      line-height: 1.6;
-    }
-    #explO .explLabel {
-      display: block;
-      text-align: left;
-      font-size: 13px;
-      color: #8b93a7;
-      margin: 0 0 4px;
-      font-family: var(--font-bold, sans-serif);
-    }
-    #explO #explPhone {
-      width: 100%;
-      padding: 12px 14px;
-      font-size: 16px;
-      border: 1px solid #d0d6e2;
-      border-radius: 8px;
-      box-sizing: border-box;
-      color: #37465a;
-      margin: 0 0 4px;
-    }
-    #explO #explPhone:focus {
-      outline: none;
-      border-color: #3e5da4;
-      box-shadow: 0 0 0 3px rgba(62, 93, 164, 0.15);
-    }
-    #explO .explErr {
-      min-height: 16px;
-      font-size: 12.5px;
-      color: #c33;
-      margin: 4px 0 8px;
-      text-align: left;
-    }
-    #explO #explGo {
-      width: 100%;
-      padding: 14px;
-      background: #fcce17;
-      color: #000;
-      border: 0;
-      border-radius: 8px;
-      font-size: 16px;
-      font-family: var(--font-bold, sans-serif);
-      font-weight: 700;
-      cursor: pointer;
-      margin: 4px 0 14px;
-      transition: background 0.2s;
-    }
-    #explO #explGo:hover:not(:disabled) { background: #e8bb14; }
-    #explO #explGo:disabled { background: #f0e0a0; cursor: not-allowed; }
-    #explO .explPrivacy {
-      display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      font-size: 11.5px;
-      color: #8b93a7;
-      line-height: 1.5;
-      text-align: left;
-      padding-top: 10px;
-      border-top: 1px solid #ececf2;
-    }
-    #explO .explPrivacy svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
-    #explO .explPrivacy b { color: #37465a; }
+    #lof-otp:focus { outline: none; border-color: #2b5fdb; box-shadow: 0 0 0 3px rgba(43,95,219,.15); }
+    .lof-ttl { font-size: 12px; color: #8b93a7; margin: 4px 0 14px; }
+    .lof-ttl-exp { color: #c33; }
+    .lof-msg { min-height: 18px; font-size: 13px; margin: 10px 0 0; }
 
-    /* ============= OTP verification modal ============= */
-    #otpO .otpC {
-      position: relative;
-      background: #fff;
-      padding: 32px 28px;
-      border-radius: 12px;
-      max-width: 400px;
-      width: 90%;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-      text-align: center;
+    /* ===== Success modal ===== */
+    .lof-success-card { width: 92%; max-width: 720px; padding: 40px 38px 28px; }
+    .lof-succ-hero { text-align: center; margin-bottom: 22px; }
+    .lof-check { width: 76px; height: 76px; margin: 0 auto 14px; }
+    .lof-check svg { width: 100%; height: 100%; }
+    .lof-succ-sub {
+      color: #2b5fdb; font-size: 16px; font-weight: 700;
+      margin: 4px 0 10px; letter-spacing: .2px;
     }
-    #otpO h3 {
-      margin: 0 0 10px;
-      font-size: 22px;
-      font-family: var(--font-bold, "Helvetica Neue", Helvetica, Arial, sans-serif);
-      color: #3e5da4;
+
+    .lof-feat-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+      margin: 0 0 22px;
     }
-    #otpO p {
-      margin: 8px 0;
-      font-size: 14px;
-      color: #37465a;
-      line-height: 1.5;
+    .lof-feat { text-align: center; padding: 4px; }
+    .lof-feat-ic {
+      width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%;
+      background: #e8eefc; color: #2b5fdb;
+      display: flex; align-items: center; justify-content: center;
     }
-    #otpO input {
-      width: 100%;
-      padding: 12px;
-      font-size: 22px;
-      letter-spacing: 8px;
-      text-align: center;
-      border: 1px solid #d0d6e2;
-      border-radius: 8px;
-      margin: 14px 0 6px;
-      box-sizing: border-box;
-      color: #37465a;
+    .lof-feat-ic svg { width: 22px; height: 22px; }
+    .lof-feat h4 { margin: 0 0 4px; font-size: 14px; font-weight: 700; color: #0f1b3d; }
+    .lof-feat p { margin: 0; font-size: 11.5px; color: #5a6478; line-height: 1.45; }
+
+    .lof-btn-hero {
+      padding: 16px 18px; font-size: 16px; gap: 12px;
+      box-shadow: 0 6px 18px rgba(43, 95, 219, 0.30);
     }
-    #otpO input:focus {
-      outline: none;
-      border-color: #3e5da4;
-      box-shadow: 0 0 0 3px rgba(62, 93, 164, 0.15);
+    .lof-btn-hero .lof-svg { width: 22px; height: 22px; }
+    .lof-btn-stack { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
+    .lof-btn-stack small { font-size: 11px; font-weight: 500; opacity: .85; margin-top: 2px; }
+
+    /* Off-market */
+    .lof-offmkt {
+      margin: 26px 0 22px;
+      display: grid; grid-template-columns: 1.4fr 1fr; gap: 0;
+      background: #fff6ed; border: 1px solid #ffd6b0;
+      border-radius: 14px; overflow: hidden;
     }
-    #otpO .otpT {
-      font-size: 12px;
-      color: #8b93a7;
-      margin: 4px 0 14px;
+    .lof-offmkt-content { padding: 22px 24px; }
+    .lof-offmkt-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .lof-offmkt-ic { width: 28px; height: 28px; color: #f97316; flex-shrink: 0; margin-top: 2px; }
+    .lof-offmkt h3 { font-size: 18px; font-weight: 800; color: #0f1b3d; margin: 0; line-height: 1.25; }
+    .lof-stk { color: #f97316; }
+    .lof-offmkt p { font-size: 13px; color: #5a6478; line-height: 1.5; margin: 0 0 14px; }
+    .lof-offmkt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin: 0 0 16px; }
+    .lof-offmkt-grid > div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #1f2a44; }
+    .lof-offmkt-grid svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .lof-btn-dark {
+      width: 100%; padding: 13px 16px; border: 0; border-radius: 10px;
+      background: #14213d; color: #fff; font-size: 14px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
     }
-    #otpO .otpT.otpExp { color: #c33; }
-    #otpO button {
-      width: 100%;
-      padding: 12px;
-      background: #3e5da4;
-      color: #fff;
-      border: 0;
-      border-radius: 8px;
-      font-size: 15px;
-      font-family: var(--font-bold, "Helvetica Neue", Helvetica, Arial, sans-serif);
-      cursor: pointer;
-      margin-top: 8px;
-      transition: background 0.2s;
+    .lof-btn-dark:hover { background: #0f1933; }
+    .lof-btn-dark .lof-svg { width: 18px; height: 18px; color: #fcce17; }
+    .lof-offmkt-img {
+      min-height: 280px;
+      background-size: cover; background-position: center; background-repeat: no-repeat;
     }
-    #otpO button:hover:not(:disabled) { background: #324d8c; }
-    #otpO button:disabled { background: #d0d6e2; cursor: not-allowed; }
-    #otpO #otpR {
-      background: transparent;
-      color: #3e5da4;
-      border: 1px solid #3e5da4;
+
+    /* Local. Proactive. Connected. */
+    .lof-lpc {
+      background: #f5f7fb; border-radius: 12px; padding: 20px 22px;
+      text-align: center; margin: 0 0 16px;
     }
-    #otpO #otpR:hover:not(:disabled) { background: rgba(62, 93, 164, 0.08); }
-    #otpO #otpR:disabled {
-      background: transparent;
-      color: #8b93a7;
-      border-color: #d0d6e2;
+    .lof-lpc h4 { margin: 0 0 6px; font-size: 16px; font-weight: 800; color: #0f1b3d; }
+    .lof-lpc > p { margin: 0 0 16px; font-size: 12.5px; color: #5a6478; }
+    .lof-lpc-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .lof-lpc-row > div {
+      display: flex; flex-direction: column; align-items: center;
+      font-size: 12px; color: #1f2a44; gap: 2px;
     }
-    #otpO #otpS {
-      background: #fcce17;
-      color: #000;
-      font-size: 16px;
-      padding: 14px;
-      margin-top: 16px;
+    .lof-lpc-ic {
+      width: 34px; height: 34px; margin-bottom: 6px;
+      border-radius: 50%; background: #e8eefc; color: #2b5fdb;
+      display: flex; align-items: center; justify-content: center;
     }
-    #otpO #otpS:hover { background: #e8bb14; }
-    #otpO #otpM {
-      min-height: 18px;
-      font-size: 13px;
-      margin: 10px 0 0;
-      color: #c33;
+    .lof-lpc-ic svg { width: 18px; height: 18px; }
+    .lof-lpc-row strong { font-weight: 700; }
+    .lof-lpc-sub { font-size: 11.5px; color: #5a6478; }
+
+    .lof-footnote {
+      text-align: center; font-size: 11px; color: #8b93a7;
+      margin: 12px 0 0;
     }
-    #otpO .otpCheck {
-      width: 64px;
-      height: 64px;
-      margin: 0 auto 12px;
-      border-radius: 50%;
-      background: #3e5da4;
-      color: #fff;
-      font-size: 36px;
-      font-weight: bold;
-      line-height: 64px;
-      text-align: center;
+
+    @media (max-width: 720px) {
+      .lof-success-card { padding: 28px 22px 22px; }
+      .lof-feat-row { grid-template-columns: repeat(2, 1fr); }
+      .lof-offmkt { grid-template-columns: 1fr; }
+      .lof-offmkt-img { min-height: 180px; order: 2; }
+      .lof-lpc-row { grid-template-columns: 1fr; }
+      .lof-h2 { font-size: 22px; }
     }
   `;
   document.head.appendChild(style);
