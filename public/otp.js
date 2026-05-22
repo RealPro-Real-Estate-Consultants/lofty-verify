@@ -46,14 +46,13 @@
   const ZAPIER_HOOK = '';
   const CODE_TTL_SECONDS = 600;
   const RESEND_COOLDOWN = 30;
-  const PHONE_PLACEHOLDER = '0000000000';
   const COMPANY_PHONE = '239-202-0788';
   const SEARCH_URL = '/listing';   // where the "Start Searching Homes" button takes the user
   const HEADERS = { 'Content-Type': 'application/json' };
 
-  // House photo for the off-market section of the success modal.
-  // Replace this URL with your own image if desired.
-  const HOUSE_PHOTO = 'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=900&q=70';
+  // Florida-style house photo for the off-market section of the success modal.
+  // Replace this URL with your own listing photo if desired.
+  const HOUSE_PHOTO = 'https://images.unsplash.com/photo-1605276373954-0c4a0dac5b12?auto=format&fit=crop&w=900&q=70';
 
   // ---- State ---------------------------------------------------------------
   let verified = false;
@@ -136,7 +135,11 @@
     checkSm: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#f97316"/><path d="M4.5 8.2l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     mapPin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
     handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-2 2-3-3-3 3 3-3-3-3 6-6 4 4M13 7l3-3 6 6-4 4-4-4"/><path d="M14 14l3 3"/></svg>',
-    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+    eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
+    flagUS: '<svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice"><rect width="30" height="20" fill="#B22234"/><rect width="30" height="1.54" y="1.54" fill="#fff"/><rect width="30" height="1.54" y="4.62" fill="#fff"/><rect width="30" height="1.54" y="7.69" fill="#fff"/><rect width="30" height="1.54" y="10.77" fill="#fff"/><rect width="30" height="1.54" y="13.85" fill="#fff"/><rect width="30" height="1.54" y="16.92" fill="#fff"/><rect width="12" height="10.77" fill="#3C3B6E"/></svg>',
+    houseLock: '<svg viewBox="0 0 40 40" fill="none"><path d="M5 17L20 5l15 12v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V17z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><path d="M15 34V24h10v10" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><circle cx="31" cy="31" r="7" fill="currentColor" stroke="#fff8ed" stroke-width="2"/><rect x="28" y="30" width="6" height="4.5" rx="0.6" fill="#fff"/><path d="M29.3 30v-1.6a1.7 1.7 0 0 1 3.4 0V30" stroke="#fff" stroke-width="1.1" fill="none"/></svg>',
+    shieldCheck: '<svg viewBox="0 0 40 40"><path d="M20 3L4 9v11c0 9.5 6.5 17.5 16 19 9.5-1.5 16-9.5 16-19V9z" fill="#2b5fdb"/><path d="M12 21l5 5 11-12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
   };
 
   function svg(name, cls) {
@@ -151,12 +154,10 @@
     if (!phoneInput || phoneInput.dataset.otpReady === '1') return;
     phoneInput.dataset.otpReady = '1';
 
+    // Lofty has the phone field set to optional, so we only need to hide it.
+    // The real phone is written in via setReactiveValue() right before submit.
     const container = phoneInput.closest('.v-input');
     if (container) container.style.display = 'none';
-
-    if (!phoneInput.value) {
-      setReactiveValue(phoneInput, PHONE_PLACEHOLDER);
-    }
   }
 
   // ==========================================================================
@@ -215,7 +216,7 @@
             <p class="lof-sub-sm">Enter your number below and we'll text you a code right away.</p>
 
             <div class="lof-tel-row">
-              <span class="lof-flag" aria-hidden="true">🇺🇸</span>
+              <span class="lof-flag" aria-hidden="true">${ICONS.flagUS}</span>
               <input id="lof-phone" type="tel" inputmode="numeric" autocomplete="tel"
                      placeholder="(XXX) XXX-XXXX" maxlength="14">
             </div>
@@ -492,8 +493,8 @@
         <div class="lof-offmkt">
           <div class="lof-offmkt-content">
             <div class="lof-offmkt-head">
-              <span class="lof-svg lof-offmkt-ic">${ICONS.keyOff}</span>
-              <h3>Want Access to Homes That <span class="lof-stk">Never Hit Zillow?</span></h3>
+              <span class="lof-svg lof-offmkt-ic">${ICONS.houseLock}</span>
+              <h3>Want Access to Homes That <span class="lof-stk">Never</span> Hit Zillow?</h3>
             </div>
             <p>Our local team can help you uncover opportunities you won't find on the big real estate portals.</p>
             <div class="lof-offmkt-grid">
@@ -504,7 +505,7 @@
               <div>${ICONS.checkSm}<span>Estate sales</span></div>
               <div>${ICONS.checkSm}<span>Investor opportunities</span></div>
             </div>
-            <button id="lof-offmkt-btn" class="lof-btn-dark">
+            <button id="lof-offmkt-btn" class="lof-btn-orange">
               <span class="lof-svg">${ICONS.key}</span>
               <span class="lof-btn-stack">
                 <span>Find Off-Market Homes</span>
@@ -517,21 +518,26 @@
 
         <!-- Local. Proactive. Connected. -->
         <div class="lof-lpc">
-          <h4>Local. Proactive. Connected.</h4>
-          <p>We work behind the scenes to find opportunities others don't even know about.</p>
-          <div class="lof-lpc-row">
+          <div class="lof-lpc-intro">
+            <span class="lof-lpc-shield">${ICONS.shieldCheck}</span>
             <div>
-              <span class="lof-lpc-ic">${ICONS.mapPin}</span>
-              <strong>Local Experts</strong>
-              <span class="lof-lpc-sub">Who know the market</span>
+              <h4>Local. Proactive. Connected.</h4>
+              <p>We work behind the scenes to find opportunities others don't even know about.</p>
             </div>
-            <div>
+          </div>
+          <div class="lof-lpc-feats">
+            <div class="lof-lpc-feat">
+              <span class="lof-lpc-ic">${ICONS.people}</span>
+              <strong>Local Experts</strong>
+              <span class="lof-lpc-sub">Who Know the Market</span>
+            </div>
+            <div class="lof-lpc-feat">
               <span class="lof-lpc-ic">${ICONS.handshake}</span>
               <strong>Strong Agent</strong>
               <span class="lof-lpc-sub">Relationships</span>
             </div>
-            <div>
-              <span class="lof-lpc-ic">${ICONS.eye}</span>
+            <div class="lof-lpc-feat">
+              <span class="lof-lpc-ic">${ICONS.house}</span>
               <strong>Access You</strong>
               <span class="lof-lpc-sub">Won't Find Online</span>
             </div>
@@ -675,7 +681,16 @@
       border-color: #2b5fdb;
       box-shadow: 0 0 0 3px rgba(43, 95, 219, 0.15);
     }
-    .lof-flag { font-size: 20px; display: flex; align-items: center; padding-right: 8px; border-right: 1px solid #eef2f9; }
+    .lof-flag {
+      display: inline-flex; align-items: center;
+      padding-right: 10px; margin-right: 2px;
+      border-right: 1px solid #eef2f9;
+    }
+    .lof-flag svg {
+      width: 26px; height: 18px;
+      border-radius: 2px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.06);
+    }
     .lof-tel-row input {
       flex: 1; border: 0; outline: none; padding: 12px 8px;
       font-size: 16px; color: #1f2a44; background: transparent;
@@ -743,7 +758,7 @@
     .lof-msg { min-height: 18px; font-size: 13px; margin: 10px 0 0; }
 
     /* ===== Success modal ===== */
-    .lof-success-card { width: 92%; max-width: 720px; padding: 40px 38px 28px; }
+    .lof-success-card { width: 92%; max-width: 820px; padding: 40px 38px 28px; }
     .lof-succ-hero { text-align: center; margin-bottom: 22px; }
     .lof-check { width: 76px; height: 76px; margin: 0 auto 14px; }
     .lof-check svg { width: 100%; height: 100%; }
@@ -777,26 +792,33 @@
     /* Off-market */
     .lof-offmkt {
       margin: 26px 0 22px;
-      display: grid; grid-template-columns: 1.4fr 1fr; gap: 0;
+      display: grid; grid-template-columns: 1.55fr 1fr; gap: 0;
       background: #fff6ed; border: 1px solid #ffd6b0;
       border-radius: 14px; overflow: hidden;
     }
-    .lof-offmkt-content { padding: 22px 24px; }
-    .lof-offmkt-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-    .lof-offmkt-ic { width: 28px; height: 28px; color: #f97316; flex-shrink: 0; margin-top: 2px; }
+    .lof-offmkt-content { padding: 24px 26px; }
+    .lof-offmkt-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+    .lof-offmkt-ic { width: 34px; height: 34px; color: #f97316; flex-shrink: 0; margin-top: 2px; }
     .lof-offmkt h3 { font-size: 18px; font-weight: 800; color: #0f1b3d; margin: 0; line-height: 1.25; }
     .lof-stk { color: #f97316; }
     .lof-offmkt p { font-size: 13px; color: #5a6478; line-height: 1.5; margin: 0 0 14px; }
-    .lof-offmkt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin: 0 0 16px; }
-    .lof-offmkt-grid > div { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #1f2a44; }
-    .lof-offmkt-grid svg { width: 14px; height: 14px; flex-shrink: 0; }
-    .lof-btn-dark {
-      width: 100%; padding: 13px 16px; border: 0; border-radius: 10px;
-      background: #14213d; color: #fff; font-size: 14px; font-weight: 700;
-      cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    .lof-offmkt-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin: 0 0 16px;
     }
-    .lof-btn-dark:hover { background: #0f1933; }
-    .lof-btn-dark .lof-svg { width: 18px; height: 18px; color: #fcce17; }
+    .lof-offmkt-grid > div {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12.5px; color: #1f2a44;
+      white-space: nowrap;
+    }
+    .lof-offmkt-grid svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .lof-btn-orange {
+      width: 100%; padding: 13px 16px; border: 0; border-radius: 10px;
+      background: #f97316; color: #fff; font-size: 14px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+      transition: background .2s;
+    }
+    .lof-btn-orange:hover { background: #ea6a0c; }
+    .lof-btn-orange .lof-svg { width: 18px; height: 18px; color: #fcce17; }
     .lof-offmkt-img {
       min-height: 280px;
       background-size: cover; background-position: center; background-repeat: no-repeat;
@@ -804,23 +826,30 @@
 
     /* Local. Proactive. Connected. */
     .lof-lpc {
-      background: #f5f7fb; border-radius: 12px; padding: 20px 22px;
-      text-align: center; margin: 0 0 16px;
+      background: #f5f7fb; border-radius: 12px; padding: 20px 24px;
+      margin: 0 0 16px;
+      display: grid; grid-template-columns: 1.3fr 2fr; gap: 20px;
+      align-items: center;
     }
-    .lof-lpc h4 { margin: 0 0 6px; font-size: 16px; font-weight: 800; color: #0f1b3d; }
-    .lof-lpc > p { margin: 0 0 16px; font-size: 12.5px; color: #5a6478; }
-    .lof-lpc-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .lof-lpc-row > div {
+    .lof-lpc-intro {
+      display: flex; align-items: center; gap: 14px;
+    }
+    .lof-lpc-shield { width: 42px; height: 42px; flex-shrink: 0; }
+    .lof-lpc-shield svg { width: 100%; height: 100%; }
+    .lof-lpc h4 { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: #0f1b3d; }
+    .lof-lpc-intro p { margin: 0; font-size: 12px; color: #5a6478; line-height: 1.45; }
+    .lof-lpc-feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .lof-lpc-feat {
       display: flex; flex-direction: column; align-items: center;
-      font-size: 12px; color: #1f2a44; gap: 2px;
+      text-align: center; font-size: 12px; color: #1f2a44; gap: 2px;
     }
     .lof-lpc-ic {
-      width: 34px; height: 34px; margin-bottom: 6px;
+      width: 36px; height: 36px; margin-bottom: 6px;
       border-radius: 50%; background: #e8eefc; color: #2b5fdb;
       display: flex; align-items: center; justify-content: center;
     }
     .lof-lpc-ic svg { width: 18px; height: 18px; }
-    .lof-lpc-row strong { font-weight: 700; }
+    .lof-lpc-feat strong { font-weight: 700; }
     .lof-lpc-sub { font-size: 11.5px; color: #5a6478; }
 
     .lof-footnote {
@@ -828,12 +857,15 @@
       margin: 12px 0 0;
     }
 
-    @media (max-width: 720px) {
+    @media (max-width: 820px) {
       .lof-success-card { padding: 28px 22px 22px; }
       .lof-feat-row { grid-template-columns: repeat(2, 1fr); }
       .lof-offmkt { grid-template-columns: 1fr; }
       .lof-offmkt-img { min-height: 180px; order: 2; }
-      .lof-lpc-row { grid-template-columns: 1fr; }
+      .lof-offmkt-grid { grid-template-columns: 1fr; }
+      .lof-offmkt-grid > div { white-space: normal; }
+      .lof-lpc { grid-template-columns: 1fr; gap: 14px; text-align: center; }
+      .lof-lpc-intro { flex-direction: column; gap: 8px; }
       .lof-h2 { font-size: 22px; }
     }
   `;
