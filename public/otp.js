@@ -471,11 +471,22 @@
     buildOTPModal(phone);
   }
 
+  // Treat any of these paths as "the home page".
+  function isHomePage() {
+    const p = window.location.pathname.replace(/\/+$/, '');
+    return p === '' || p === '/index' || p === '/home';
+  }
+
   // ==========================================================================
   //  Modal 3: branded success screen
   // ==========================================================================
   function buildSuccessModal() {
     closeLoftyRegister();   // safety net
+
+    const onHome = isHomePage();
+    const searchBtnHTML = onHome
+      ? '<span>Start Searching Homes</span><small>Advanced Home Search Access Unlocked</small>'
+      : '<span>Continue Browsing</span><small>Account unlocked &mdash; keep exploring this page</small>';
 
     const overlay = document.createElement('div');
     overlay.className = 'lof-overlay';
@@ -523,10 +534,7 @@
         <!-- Primary CTA -->
         <button id="lof-search" class="lof-btn-primary lof-btn-hero">
           <span class="lof-svg">${ICONS.house}</span>
-          <span class="lof-btn-stack">
-            <span>Start Searching Homes</span>
-            <small>Advanced Home Search Access Unlocked</small>
-          </span>
+          <span class="lof-btn-stack">${searchBtnHTML}</span>
         </button>
 
         <!-- Off-market section -->
@@ -592,7 +600,13 @@
 
     overlay.querySelector('.lof-close').onclick = function () { closeOverlay(overlay); };
     overlay.querySelector('#lof-search').onclick = function () {
-      window.location.href = SEARCH_URL;
+      if (onHome) {
+        window.location.href = SEARCH_URL;
+      } else {
+        // On a sub-page (e.g. property detail) — just dismiss so the user
+        // can keep doing what they were doing.
+        closeOverlay(overlay);
+      }
     };
     overlay.querySelector('#lof-offmkt-btn').onclick = function () {
       window.location.href = '/contact';
