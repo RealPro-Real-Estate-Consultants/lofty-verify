@@ -37,6 +37,10 @@
 
 // --- Two-stage OTP verification flow -----------------------------------------
 (function () {
+  // Guard against the bootstrap loader running twice on the same page.
+  if (window.__loftyOTPLoaded) return;
+  window.__loftyOTPLoaded = true;
+
   // ---- Config --------------------------------------------------------------
   const BACKEND = 'https://lofty-verify-production-3aee.up.railway.app';
   const ZAPIER_HOOK = '';            // optional Zap #2 catch-hook URL
@@ -67,6 +71,24 @@
   function closeOverlay(overlay) {
     overlay.remove();
     document.documentElement.style.overflow = '';
+  }
+
+  // Tear down Lofty's own register popup. Prefer clicking the popup's close
+  // icon (preserves any Lofty cleanup logic); fall back to detaching the node.
+  function closeLoftyRegister() {
+    const popup = document.querySelector('.sign-log.classic-one-step');
+    if (!popup) return;
+    const closeIcon = popup.querySelector('.iconfont.icon-close, .icon-close');
+    if (closeIcon) {
+      closeIcon.click();
+      // Belt-and-suspenders: if Lofty doesn't remove the node, do it ourselves.
+      setTimeout(function () {
+        const stillThere = document.querySelector('.sign-log.classic-one-step');
+        if (stillThere) stillThere.remove();
+      }, 300);
+    } else {
+      popup.remove();
+    }
   }
 
   function formatMMSS(seconds) {
@@ -173,7 +195,10 @@
     }
     xBtn.onclick = dismiss;
 
+    let submitting = false;
     goBtn.onclick = function () {
+      if (submitting) return;                              // guard double-clicks
+
       const phone = normalizePhone(phoneEl.value);
       if (phone.length < 11) {
         errEl.textContent = 'Please enter a valid US mobile number with area code.';
@@ -181,6 +206,7 @@
         return;
       }
       errEl.textContent = '';
+      submitting = true;
       goBtn.disabled = true;
       goBtn.textContent = 'Sending...';
 
@@ -195,8 +221,13 @@
       bypassRegister = true;
       setTimeout(function () {
         submitBtn.click();
+
+        // Close Lofty's register popup once it has had time to submit
+        setTimeout(closeLoftyRegister, 400);
+
         // After Lofty processes the click, open the OTP modal
         setTimeout(function () { fireOTP(phone); }, 600);
+
         // Reset bypass shortly after for safety
         setTimeout(function () { bypassRegister = false; }, 1500);
       }, 50);
@@ -290,6 +321,7 @@
         '<p>You\'re all set! Now you can search properties across Southwest Florida.</p>' +
         '<button id="otpS">Search Now</button>';
       card.querySelector('#otpS').onclick = function () {
+        closeLoftyRegister();   // safety net if Lofty popup is still around
         closeOverlay(overlay);
       };
     }
