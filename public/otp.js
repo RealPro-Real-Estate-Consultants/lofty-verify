@@ -65,6 +65,19 @@
     return d.length === 10 ? '1' + d : d;
   }
 
+  // Returns { local: '2394944663', e164: '12394944663' } or null if invalid.
+  // Lofty's phone field truncates to 10 digits, so we feed it the local part
+  // while still using the E.164-style 1+10 for Twilio Verify.
+  function parsePhone(raw) {
+    const d = (raw || '').replace(/\D/g, '');
+    let local;
+    if (d.length === 10) local = d;
+    else if (d.length === 11 && d[0] === '1') local = d.slice(1);
+    else return null;
+    if (!/^[2-9]\d{9}$/.test(local)) return null;   // valid US area code
+    return { local: local, e164: '1' + local };
+  }
+
   function formatUSDisplay(digits) {
     const d = (digits || '').replace(/\D/g, '').slice(0, 10);
     if (d.length === 0) return '';
@@ -139,7 +152,32 @@
     flagUS: '<svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice"><rect width="30" height="20" fill="#B22234"/><rect width="30" height="1.54" y="1.54" fill="#fff"/><rect width="30" height="1.54" y="4.62" fill="#fff"/><rect width="30" height="1.54" y="7.69" fill="#fff"/><rect width="30" height="1.54" y="10.77" fill="#fff"/><rect width="30" height="1.54" y="13.85" fill="#fff"/><rect width="30" height="1.54" y="16.92" fill="#fff"/><rect width="12" height="10.77" fill="#3C3B6E"/></svg>',
     houseLock: '<svg viewBox="0 0 40 40" fill="none"><path d="M5 17L20 5l15 12v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V17z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><path d="M15 34V24h10v10" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><circle cx="31" cy="31" r="7" fill="currentColor" stroke="#fff8ed" stroke-width="2"/><rect x="28" y="30" width="6" height="4.5" rx="0.6" fill="#fff"/><path d="M29.3 30v-1.6a1.7 1.7 0 0 1 3.4 0V30" stroke="#fff" stroke-width="1.1" fill="none"/></svg>',
     shieldCheck: '<svg viewBox="0 0 40 40"><path d="M20 3L4 9v11c0 9.5 6.5 17.5 16 19 9.5-1.5 16-9.5 16-19V9z" fill="#2b5fdb"/><path d="M12 21l5 5 11-12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>'
+    people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    phoneLockIllu:
+      '<svg viewBox="0 0 220 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+        '<circle cx="115" cy="100" r="78" fill="#eef2fb"/>' +
+        '<g fill="#1e3a8a" opacity=".18">' +
+          '<circle cx="8"  cy="148" r="2.5"/><circle cx="22" cy="148" r="2.5"/><circle cx="36" cy="148" r="2.5"/>' +
+          '<circle cx="8"  cy="162" r="2.5"/><circle cx="22" cy="162" r="2.5"/><circle cx="36" cy="162" r="2.5"/>' +
+          '<circle cx="8"  cy="176" r="2.5"/><circle cx="22" cy="176" r="2.5"/><circle cx="36" cy="176" r="2.5"/>' +
+        '</g>' +
+        '<rect x="78" y="28" width="84" height="160" rx="16" fill="#1e3a8a"/>' +
+        '<rect x="84" y="36" width="72" height="144" rx="9" fill="#f7f9fd"/>' +
+        '<rect x="105" y="42" width="30" height="6.5" rx="3.25" fill="#1e3a8a"/>' +
+        '<rect x="106" y="180" width="28" height="2.6" rx="1.3" fill="#1e3a8a" opacity=".25"/>' +
+        '<rect x="100" y="60" width="100" height="68" rx="12" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
+        '<path d="M115 128 L108 142 L125 128 Z" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
+        '<line x1="116" y1="128" x2="124" y2="128" stroke="#fff" stroke-width="2.5"/>' +
+        '<g transform="translate(150 78)">' +
+          '<path d="M-6 6 V2 A6 6 0 0 1 6 2 V6" fill="none" stroke="#1e3a8a" stroke-width="2.4"/>' +
+          '<rect x="-8" y="6" width="16" height="13" rx="2" fill="#1e3a8a"/>' +
+          '<circle cx="0" cy="12" r="1.5" fill="#fff"/>' +
+        '</g>' +
+        '<g fill="#1e3a8a">' +
+          '<circle cx="125" cy="112" r="3"/><circle cx="138" cy="112" r="3"/><circle cx="150" cy="112" r="3"/>' +
+          '<circle cx="162" cy="112" r="3"/><circle cx="175" cy="112" r="3"/>' +
+        '</g>' +
+      '</svg>'
   };
 
   function svg(name, cls) {
@@ -211,7 +249,7 @@
 
           <!-- RIGHT: phone capture -->
           <div class="lof-phone-right">
-            <div class="lof-phone-illu">${ICONS.phone}</div>
+            <div class="lof-phone-illu">${ICONS.phoneLockIllu}</div>
             <h3 class="lof-h3">Get Your 6-Digit Code</h3>
             <p class="lof-sub-sm">Enter your number below and we'll text you a code right away.</p>
 
@@ -283,8 +321,8 @@
     let submitting = false;
     sendBtn.onclick = function () {
       if (submitting) return;
-      const phone = normalizePhone(phoneEl.value);
-      if (phone.length < 11) {
+      const parsed = parsePhone(phoneEl.value);
+      if (!parsed) {
         errEl.textContent = 'Please enter a valid US mobile number with area code.';
         phoneEl.focus();
         return;
@@ -294,8 +332,10 @@
       sendBtn.disabled = true;
       sendBtn.innerHTML = 'Sending...';
 
+      // Lofty's phone field truncates to 10 digits → write the local part only.
+      // Twilio Verify requires E.164 (1+10), passed as `parsed.e164`.
       const loftyPhone = document.querySelector('.pop-sign-log.register input[name="phone"]');
-      if (loftyPhone) setReactiveValue(loftyPhone, phone);
+      if (loftyPhone) setReactiveValue(loftyPhone, parsed.local);
 
       closeOverlay(overlay);
 
@@ -303,7 +343,7 @@
       setTimeout(function () {
         submitBtn.click();
         setTimeout(closeLoftyRegister, 400);
-        setTimeout(function () { fireOTP(phone); }, 600);
+        setTimeout(function () { fireOTP(parsed.e164); }, 600);
         setTimeout(function () { bypassRegister = false; }, 1500);
       }, 50);
     };
@@ -668,8 +708,8 @@
     .lof-benefits h4 { margin: 2px 0 4px; font-size: 15px; font-weight: 700; color: #0f1b3d; }
     .lof-benefits p { margin: 0; font-size: 13px; color: #5a6478; line-height: 1.5; }
     .lof-phone-illu {
-      width: 60px; height: 60px; margin: 0 auto 14px;
-      color: #2b5fdb;
+      width: 150px; height: 130px; margin: 0 auto 10px;
+      display: flex; align-items: center; justify-content: center;
     }
     .lof-phone-illu svg { width: 100%; height: 100%; }
     .lof-tel-row {
