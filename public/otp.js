@@ -101,6 +101,14 @@
     }
   }
 
+  // Render a 10- or 11-digit phone as "+1 (239) 494-4663"
+  function formatPhonePretty(input) {
+    const d = (input || '').replace(/\D/g, '');
+    const local = d.length === 11 && d[0] === '1' ? d.slice(1) : d;
+    if (local.length !== 10) return '+' + d;
+    return '+1 (' + local.slice(0, 3) + ') ' + local.slice(3, 6) + '-' + local.slice(6);
+  }
+
   function formatMMSS(seconds) {
     const m = Math.floor(seconds / 60);
     const s = seconds % 60;
@@ -153,6 +161,19 @@
     houseLock: '<svg viewBox="0 0 40 40" fill="none"><path d="M5 17L20 5l15 12v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V17z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><path d="M15 34V24h10v10" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><circle cx="31" cy="31" r="7" fill="currentColor" stroke="#fff8ed" stroke-width="2"/><rect x="28" y="30" width="6" height="4.5" rx="0.6" fill="#fff"/><path d="M29.3 30v-1.6a1.7 1.7 0 0 1 3.4 0V30" stroke="#fff" stroke-width="1.1" fill="none"/></svg>',
     shieldCheck: '<svg viewBox="0 0 40 40"><path d="M20 3L4 9v11c0 9.5 6.5 17.5 16 19 9.5-1.5 16-9.5 16-19V9z" fill="#2b5fdb"/><path d="M12 21l5 5 11-12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+    shieldHouse:
+      '<svg viewBox="0 0 40 40">' +
+        '<path d="M20 3L4 9v11c0 9.5 6.5 17.5 16 19 9.5-1.5 16-9.5 16-19V9z" fill="#1e3a8a"/>' +
+        '<g transform="translate(20 19)">' +
+          '<path d="M-7 0L0 -6 7 0v9a1 1 0 0 1-1 1H-6a1 1 0 0 1-1-1z" fill="#fff"/>' +
+          '<rect x="-2.5" y="4" width="5" height="6" fill="#1e3a8a"/>' +
+        '</g>' +
+      '</svg>',
+    sparkle: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/><circle cx="19" cy="5" r="1.5"/><circle cx="5" cy="19" r="1.5"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+    arrowR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+    lock2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
     phoneLockIllu:
       '<svg viewBox="0 0 220 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
         '<circle cx="115" cy="100" r="78" fill="#eef2fb"/>' +
@@ -356,7 +377,7 @@
   }
 
   // ==========================================================================
-  //  Modal 2: OTP code-entry (kept compact, unchanged styling from prior)
+  //  Modal 2: OTP code-entry — redesigned
   // ==========================================================================
   function buildOTPModal(phone) {
     const overlay = document.createElement('div');
@@ -365,28 +386,86 @@
     overlay.innerHTML = `
       <div class="lof-backdrop"></div>
       <div class="lof-card lof-otp-card">
-        <h3 class="lof-h3 lof-center">Verify your phone</h3>
-        <p class="lof-sub-sm lof-center">We texted a 6-digit code to <b>+${phone}</b>.</p>
-        <input id="lof-otp" type="tel" inputmode="numeric" maxlength="6"
-               placeholder="123456" autocomplete="one-time-code">
-        <p id="lof-ttl" class="lof-ttl">Code expires in <b>10:00</b></p>
-        <button id="lof-verify" class="lof-btn-primary lof-btn-block">Verify</button>
-        <button id="lof-resend" type="button" class="lof-btn-secondary lof-btn-block">Resend code</button>
+        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
+
+        <div class="lof-otp-hero">
+          <span class="lof-shield-house">${ICONS.shieldHouse}</span>
+        </div>
+
+        <h2 class="lof-otp-title">
+          Enter Your<br>
+          <span class="lof-otp-title-em">Verification Code</span>
+        </h2>
+
+        <p class="lof-otp-sub">We just texted a 6-digit code to:</p>
+
+        <div class="lof-phone-pill">
+          <span class="lof-svg lof-pill-ic">${ICONS.phone}</span>
+          <span id="lof-phone-display">${formatPhonePretty(phone)}</span>
+        </div>
+        <p class="lof-wrong">
+          Wrong number? <a href="#" id="lof-edit-phone">Edit</a>
+        </p>
+
+        <div class="lof-info-box">
+          <span class="lof-svg lof-info-ic">${ICONS.sparkle}</span>
+          <p>Search homes with <b>advanced filters</b> and discover <b>opportunities</b> not found on major portals.</p>
+        </div>
+
+        <div class="lof-otp-boxes">
+          <input class="lof-otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+          <input class="lof-otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+          <input class="lof-otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+          <input class="lof-otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+          <input class="lof-otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+          <input class="lof-otp-box" type="text" inputmode="numeric" maxlength="1" autocomplete="one-time-code">
+        </div>
+
+        <p id="lof-ttl" class="lof-ttl">
+          <span class="lof-svg">${ICONS.clock}</span>
+          Your code will expire in <b>10:00</b>
+        </p>
+
+        <button id="lof-verify" class="lof-btn-primary lof-btn-hero">
+          <span class="lof-svg">${ICONS.house}</span>
+          <span>Continue to Homes</span>
+          <span class="lof-svg lof-btn-arrow">${ICONS.arrowR}</span>
+        </button>
+
+        <button id="lof-resend" type="button" class="lof-link-btn">
+          <span class="lof-svg">${ICONS.refresh}</span>
+          Resend Code
+        </button>
+
         <p id="lof-msg" class="lof-msg"></p>
+
+        <p class="lof-otp-foot">
+          <span class="lof-svg">${ICONS.lock2}</span>
+          Used only for account access and property updates.
+        </p>
       </div>
     `;
     document.body.appendChild(overlay);
     document.documentElement.style.overflow = 'hidden';
 
-    const codeInput = overlay.querySelector('#lof-otp');
+    const boxes     = Array.from(overlay.querySelectorAll('.lof-otp-box'));
     const msg       = overlay.querySelector('#lof-msg');
     const verifyBtn = overlay.querySelector('#lof-verify');
     const resendBtn = overlay.querySelector('#lof-resend');
     const timerEl   = overlay.querySelector('#lof-ttl');
+    const closeBtn  = overlay.querySelector('.lof-close');
+    const editLink  = overlay.querySelector('#lof-edit-phone');
 
     let ttl = CODE_TTL_SECONDS;
     let expiryTimer = null;
+    let busy = false;
 
+    function getCode() {
+      return boxes.map(b => b.value).join('');
+    }
+    function clearBoxes() {
+      boxes.forEach(b => { b.value = ''; });
+    }
     function setMessage(text, kind) {
       msg.textContent = text;
       msg.style.color = kind === 'ok' ? '#1c8a3a' : kind === 'info' ? '#3e5da4' : '#c33';
@@ -394,12 +473,12 @@
     function tickExpiry() {
       if (ttl <= 0) {
         clearInterval(expiryTimer);
-        timerEl.innerHTML = '<b>Code expired</b> — tap Resend';
+        timerEl.innerHTML = '<span class="lof-svg">' + ICONS.clock + '</span> <b>Code expired</b> — tap Resend';
         timerEl.classList.add('lof-ttl-exp');
         verifyBtn.disabled = true;
         return;
       }
-      timerEl.innerHTML = 'Code expires in <b>' + formatMMSS(ttl) + '</b>';
+      timerEl.innerHTML = '<span class="lof-svg">' + ICONS.clock + '</span> Your code will expire in <b>' + formatMMSS(ttl) + '</b>';
       ttl--;
     }
     function startExpiryCountdown() {
@@ -416,17 +495,69 @@
       (function tick() {
         if (left <= 0) {
           resendBtn.disabled = false;
-          resendBtn.textContent = 'Resend code';
+          resendBtn.innerHTML = '<span class="lof-svg">' + ICONS.refresh + '</span> Resend Code';
           return;
         }
-        resendBtn.textContent = 'Resend in ' + left + 's';
+        resendBtn.innerHTML = 'Resend in ' + left + 's';
         left--;
         setTimeout(tick, 1000);
       })();
     }
 
+    // 6-box behavior: auto-advance, backspace, paste
+    boxes.forEach(function (box, i) {
+      box.addEventListener('input', function (e) {
+        const val = (e.target.value || '').replace(/\D/g, '');
+        if (val.length > 1) {
+          // Pasted multiple digits — distribute starting at this index
+          const digits = val.split('').slice(0, 6 - i);
+          digits.forEach(function (d, j) { boxes[i + j].value = d; });
+          const lastIdx = Math.min(i + digits.length, 5);
+          boxes[lastIdx].focus();
+        } else {
+          box.value = val;
+          if (val && i < 5) boxes[i + 1].focus();
+        }
+        if (getCode().length === 6) doVerify();
+      });
+      box.addEventListener('keydown', function (e) {
+        if (e.key === 'Backspace' && !box.value && i > 0) {
+          boxes[i - 1].focus();
+          boxes[i - 1].value = '';
+          e.preventDefault();
+        } else if (e.key === 'ArrowLeft' && i > 0) {
+          boxes[i - 1].focus();
+        } else if (e.key === 'ArrowRight' && i < 5) {
+          boxes[i + 1].focus();
+        }
+      });
+      box.addEventListener('paste', function (e) {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+        text.split('').forEach(function (d, j) { if (boxes[j]) boxes[j].value = d; });
+        const lastIdx = Math.min(text.length, 5);
+        boxes[lastIdx].focus();
+        if (getCode().length === 6) doVerify();
+      });
+    });
+
+    closeBtn.onclick = function () { closeOverlay(overlay); };
+
+    editLink.onclick = function (e) {
+      e.preventDefault();
+      const localPhone = phone.length === 11 && phone[0] === '1' ? phone.slice(1) : phone;
+      closeOverlay(overlay);
+      clearInterval(expiryTimer);
+      buildEditPhoneModal(localPhone, function (newE164) {
+        post('/send-verification', { phoneNumber: newE164 }).catch(function () {});
+        buildOTPModal(newE164);
+      });
+    };
+
     resendBtn.onclick = function () {
       setMessage('New code sent.', 'ok');
+      clearBoxes();
+      boxes[0].focus();
       post('/send-verification', { phoneNumber: phone }).catch(function () {
         setMessage('Could not resend. Try again.', 'err');
       });
@@ -434,9 +565,11 @@
       startResendCooldown(RESEND_COOLDOWN);
     };
 
-    verifyBtn.onclick = async function () {
-      const code = codeInput.value.trim();
+    async function doVerify() {
+      if (busy) return;
+      const code = getCode();
       if (code.length !== 6) { setMessage('Enter the 6-digit code.', 'err'); return; }
+      busy = true;
       setMessage('Checking...', 'info');
       try {
         const res = await post('/verify-otp', { phoneNumber: phone, otp: code });
@@ -453,16 +586,73 @@
           closeOverlay(overlay);
           buildSuccessModal();
         } else {
-          setMessage('Incorrect or expired code. Tap Resend for a new one.', 'err');
+          setMessage('Incorrect or expired code. Tap Resend Code for a new one.', 'err');
+          busy = false;
         }
       } catch (e) {
         setMessage('Network error. Try again.', 'err');
+        busy = false;
       }
-    };
+    }
+    verifyBtn.onclick = doVerify;
 
     startExpiryCountdown();
     startResendCooldown(RESEND_COOLDOWN);
-    setTimeout(function () { codeInput.focus(); }, 50);
+    setTimeout(function () { boxes[0].focus(); }, 50);
+  }
+
+  // ==========================================================================
+  //  Modal 2b: "Wrong number? Edit" inline phone editor
+  // ==========================================================================
+  function buildEditPhoneModal(prevLocal, onSubmit) {
+    const overlay = document.createElement('div');
+    overlay.className = 'lof-overlay';
+    overlay.id = 'lof-edit-modal';
+    overlay.innerHTML = `
+      <div class="lof-backdrop"></div>
+      <div class="lof-card lof-edit-card">
+        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
+        <h3 class="lof-h3 lof-center">Change Phone Number</h3>
+        <p class="lof-sub-sm lof-center">Enter the correct mobile number and we'll send a new verification code.</p>
+        <div class="lof-tel-row">
+          <span class="lof-flag" aria-hidden="true">${ICONS.flagUS}</span>
+          <input id="lof-edit-input" type="tel" inputmode="numeric" autocomplete="tel"
+                 placeholder="(XXX) XXX-XXXX" maxlength="14">
+        </div>
+        <p class="lof-err" id="lof-edit-err"></p>
+        <button id="lof-edit-go" class="lof-btn-primary">Send New Code</button>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    document.documentElement.style.overflow = 'hidden';
+
+    const input = overlay.querySelector('#lof-edit-input');
+    const errEl = overlay.querySelector('#lof-edit-err');
+
+    if (prevLocal) input.value = formatUSDisplay(prevLocal);
+
+    input.addEventListener('input', function () {
+      const display = formatUSDisplay(input.value);
+      if (display !== input.value) input.value = display;
+    });
+
+    overlay.querySelector('.lof-close').onclick = function () { closeOverlay(overlay); };
+
+    overlay.querySelector('#lof-edit-go').onclick = function () {
+      const parsed = parsePhone(input.value);
+      if (!parsed) {
+        errEl.textContent = 'Please enter a valid US mobile number with area code.';
+        return;
+      }
+      closeOverlay(overlay);
+      onSubmit(parsed.e164);
+    };
+
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); overlay.querySelector('#lof-edit-go').click(); }
+    });
+
+    setTimeout(function () { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 50);
   }
 
   function fireOTP(phone) {
@@ -800,16 +990,113 @@
     }
 
     /* ===== OTP modal ===== */
-    .lof-otp-card { width: 90%; max-width: 400px; padding: 28px; text-align: center; }
-    #lof-otp {
-      width: 100%; padding: 12px; font-size: 22px; letter-spacing: 8px;
-      text-align: center; border: 1px solid #d0d6e2; border-radius: 8px;
-      margin: 14px 0 6px; box-sizing: border-box; color: #1f2a44;
+    .lof-otp-card {
+      width: 92%; max-width: 440px; padding: 28px 28px 22px;
+      text-align: center; position: relative;
     }
-    #lof-otp:focus { outline: none; border-color: #2b5fdb; box-shadow: 0 0 0 3px rgba(43,95,219,.15); }
-    .lof-ttl { font-size: 12px; color: #8b93a7; margin: 4px 0 14px; }
-    .lof-ttl-exp { color: #c33; }
-    .lof-msg { min-height: 18px; font-size: 13px; margin: 10px 0 0; }
+    .lof-otp-hero { display: flex; justify-content: center; margin: 4px 0 14px; position: relative; }
+    .lof-shield-house { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; }
+    .lof-shield-house svg { width: 100%; height: 100%; }
+    .lof-otp-hero:before, .lof-otp-hero:after {
+      content: ''; position: absolute; top: 50%; width: 8px; height: 8px;
+      border-radius: 50%; border: 1.5px solid #c9d4f0; transform: translateY(-50%);
+    }
+    .lof-otp-hero:before { left: calc(50% - 50px); }
+    .lof-otp-hero:after { right: calc(50% - 50px); }
+    .lof-otp-title {
+      font-size: 18px; font-weight: 600; color: #0f1b3d;
+      margin: 0 0 12px; line-height: 1.15; letter-spacing: -0.2px;
+    }
+    .lof-otp-title-em {
+      display: block; font-size: 30px; font-weight: 800; color: #0f1b3d;
+      margin-top: 2px;
+    }
+    .lof-otp-sub {
+      font-size: 13.5px; color: #5a6478; margin: 0 0 12px;
+    }
+    .lof-phone-pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #fff; border: 1px solid #d8dfeb;
+      border-radius: 999px; padding: 8px 18px;
+      font-size: 15px; font-weight: 600; color: #0f1b3d;
+    }
+    .lof-pill-ic { width: 16px; height: 16px; color: #2b5fdb; }
+    .lof-wrong {
+      font-size: 12.5px; color: #5a6478; margin: 8px 0 14px;
+    }
+    .lof-wrong a {
+      color: #2b5fdb; text-decoration: underline; font-weight: 600; cursor: pointer;
+    }
+    .lof-info-box {
+      display: flex; align-items: flex-start; gap: 10px;
+      background: #eef3fc; border-radius: 10px;
+      padding: 11px 14px; margin: 0 0 18px;
+      text-align: left;
+    }
+    .lof-info-ic { width: 18px; height: 18px; color: #2b5fdb; flex-shrink: 0; margin-top: 1px; }
+    .lof-info-box p {
+      margin: 0; font-size: 12px; color: #3d4763; line-height: 1.5;
+    }
+    .lof-info-box b { color: #2b5fdb; font-weight: 700; }
+
+    .lof-otp-boxes {
+      display: flex; gap: 8px; justify-content: center; margin: 0 0 14px;
+    }
+    .lof-otp-box {
+      width: 44px; height: 52px; text-align: center;
+      font-size: 22px; font-weight: 700; color: #0f1b3d;
+      border: 1.5px solid #d8dfeb; border-radius: 10px;
+      background: #fff; transition: border-color .15s, box-shadow .15s;
+      caret-color: #2b5fdb;
+    }
+    .lof-otp-box:focus {
+      outline: none; border-color: #2b5fdb;
+      box-shadow: 0 0 0 3px rgba(43,95,219,.15);
+    }
+    .lof-ttl {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12.5px; color: #f97316;
+      margin: 0 0 16px; font-weight: 500;
+    }
+    .lof-ttl .lof-svg { width: 14px; height: 14px; }
+    .lof-ttl b { color: #f97316; font-weight: 700; }
+    .lof-ttl-exp, .lof-ttl-exp b { color: #c33; }
+
+    #lof-verify.lof-btn-hero {
+      gap: 10px; padding: 14px 18px; font-size: 15px;
+      box-shadow: 0 6px 18px rgba(43,95,219,.30);
+    }
+    #lof-verify .lof-svg { width: 18px; height: 18px; }
+    #lof-verify .lof-btn-arrow { width: 18px; height: 18px; }
+
+    .lof-link-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: transparent; border: 0;
+      color: #2b5fdb; font-size: 13px; font-weight: 600;
+      cursor: pointer; padding: 10px;
+      margin: 4px 0 0;
+    }
+    .lof-link-btn .lof-svg { width: 14px; height: 14px; }
+    .lof-link-btn:hover:not(:disabled) { text-decoration: underline; }
+    .lof-link-btn:disabled { color: #8b93a7; cursor: not-allowed; }
+
+    .lof-msg { min-height: 16px; font-size: 12.5px; margin: 6px 0 0; }
+    .lof-otp-foot {
+      display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+      margin: 14px 0 0; padding-top: 14px; border-top: 1px solid #eef2f9;
+      font-size: 11.5px; color: #8b93a7;
+    }
+    .lof-otp-foot .lof-svg { width: 12px; height: 12px; }
+
+    /* Edit phone modal */
+    .lof-edit-card { width: 92%; max-width: 420px; padding: 32px 28px 24px; }
+    .lof-edit-card .lof-btn-primary { margin-top: 8px; }
+
+    @media (max-width: 480px) {
+      .lof-otp-title-em { font-size: 24px; }
+      .lof-otp-box { width: 38px; height: 46px; font-size: 18px; }
+      .lof-otp-boxes { gap: 6px; }
+    }
 
     /* ===== Success modal ===== */
     .lof-success-card { width: 92%; max-width: 820px; padding: 40px 38px 28px; }
