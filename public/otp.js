@@ -229,7 +229,6 @@
     overlay.innerHTML = `
       <div class="lof-backdrop"></div>
       <div class="lof-card lof-phone-card">
-        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
         <div class="lof-phone-grid">
           <!-- LEFT: value props -->
           <div class="lof-phone-left">
@@ -329,9 +328,6 @@
     const phoneEl = overlay.querySelector('#lof-phone');
     const errEl   = overlay.querySelector('#lof-phone-err');
     const sendBtn = overlay.querySelector('#lof-send');
-    const closeBtn = overlay.querySelector('.lof-close');
-
-    closeBtn.onclick = function () { closeOverlay(overlay); };
 
     // Live phone formatting
     phoneEl.addEventListener('input', function () {
@@ -386,8 +382,6 @@
     overlay.innerHTML = `
       <div class="lof-backdrop"></div>
       <div class="lof-card lof-otp-card">
-        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
-
         <div class="lof-otp-hero">
           <span class="lof-shield-house">${ICONS.shieldHouse}</span>
         </div>
@@ -453,7 +447,6 @@
     const verifyBtn = overlay.querySelector('#lof-verify');
     const resendBtn = overlay.querySelector('#lof-resend');
     const timerEl   = overlay.querySelector('#lof-ttl');
-    const closeBtn  = overlay.querySelector('.lof-close');
     const editLink  = overlay.querySelector('#lof-edit-phone');
 
     let ttl = CODE_TTL_SECONDS;
@@ -541,17 +534,23 @@
       });
     });
 
-    closeBtn.onclick = function () { closeOverlay(overlay); };
-
     editLink.onclick = function (e) {
       e.preventDefault();
       const localPhone = phone.length === 11 && phone[0] === '1' ? phone.slice(1) : phone;
       closeOverlay(overlay);
       clearInterval(expiryTimer);
-      buildEditPhoneModal(localPhone, function (newE164) {
-        post('/send-verification', { phoneNumber: newE164 }).catch(function () {});
-        buildOTPModal(newE164);
-      });
+      buildEditPhoneModal(
+        localPhone,
+        function (newE164) {
+          // Submit → send new code, reopen OTP with new phone
+          post('/send-verification', { phoneNumber: newE164 }).catch(function () {});
+          buildOTPModal(newE164);
+        },
+        function () {
+          // Cancel → reopen OTP with the original phone, no new code sent
+          buildOTPModal(phone);
+        }
+      );
     };
 
     resendBtn.onclick = function () {
@@ -604,14 +603,13 @@
   // ==========================================================================
   //  Modal 2b: "Wrong number? Edit" inline phone editor
   // ==========================================================================
-  function buildEditPhoneModal(prevLocal, onSubmit) {
+  function buildEditPhoneModal(prevLocal, onSubmit, onCancel) {
     const overlay = document.createElement('div');
     overlay.className = 'lof-overlay';
     overlay.id = 'lof-edit-modal';
     overlay.innerHTML = `
       <div class="lof-backdrop"></div>
       <div class="lof-card lof-edit-card">
-        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
         <h3 class="lof-h3 lof-center">Change Phone Number</h3>
         <p class="lof-sub-sm lof-center">Enter the correct mobile number and we'll send a new verification code.</p>
         <div class="lof-tel-row">
@@ -621,6 +619,7 @@
         </div>
         <p class="lof-err" id="lof-edit-err"></p>
         <button id="lof-edit-go" class="lof-btn-primary">Send New Code</button>
+        <button id="lof-edit-cancel" type="button" class="lof-link-btn lof-link-center">Cancel</button>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -636,7 +635,10 @@
       if (display !== input.value) input.value = display;
     });
 
-    overlay.querySelector('.lof-close').onclick = function () { closeOverlay(overlay); };
+    overlay.querySelector('#lof-edit-cancel').onclick = function () {
+      closeOverlay(overlay);
+      if (onCancel) onCancel();
+    };
 
     overlay.querySelector('#lof-edit-go').onclick = function () {
       const parsed = parsePhone(input.value);
@@ -684,7 +686,6 @@
     overlay.innerHTML = `
       <div class="lof-backdrop"></div>
       <div class="lof-card lof-success-card">
-        <button class="lof-close" type="button" aria-label="Close">${ICONS.close}</button>
 
         <!-- Hero -->
         <div class="lof-succ-hero">
@@ -788,7 +789,6 @@
     document.body.appendChild(overlay);
     document.documentElement.style.overflow = 'hidden';
 
-    overlay.querySelector('.lof-close').onclick = function () { closeOverlay(overlay); };
     overlay.querySelector('#lof-search').onclick = function () {
       if (onHome) {
         window.location.href = SEARCH_URL;
@@ -1079,6 +1079,7 @@
     .lof-link-btn .lof-svg { width: 14px; height: 14px; }
     .lof-link-btn:hover:not(:disabled) { text-decoration: underline; }
     .lof-link-btn:disabled { color: #8b93a7; cursor: not-allowed; }
+    .lof-link-center { display: flex; margin: 6px auto 0; }
 
     .lof-msg { min-height: 16px; font-size: 12.5px; margin: 6px 0 0; }
     .lof-otp-foot {
