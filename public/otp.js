@@ -274,9 +274,39 @@
     `;
     firstInput.parentNode.insertBefore(enrich, firstInput);
 
-    // ---- Update submit button text ----------------------------------------
-    const submitInput = form.querySelector('.submit input[type="submit"]');
-    if (submitInput) submitInput.value = 'CONTINUE TO ADVANCED HOME SEARCH';
+    // ---- Lock the submit button text --------------------------------------
+    // Lofty's Vue layer re-renders the submit input whenever the form state
+    // changes (consent toggled, field typed in, etc.) and resets `value`.
+    // We override the input's value property descriptor so any attempt by
+    // Vue to write a different value gets re-routed to our text. A
+    // MutationObserver re-locks if Vue replaces the element entirely.
+    const BTN_TEXT = 'CONTINUE TO ADVANCED HOME SEARCH';
+
+    function lockButton(btn) {
+      if (!btn || btn.dataset.otpLocked === '1') return;
+      btn.dataset.otpLocked = '1';
+
+      const proto = Object.getPrototypeOf(btn);
+      const orig  = Object.getOwnPropertyDescriptor(proto, 'value');
+      Object.defineProperty(btn, 'value', {
+        get: function () { return BTN_TEXT; },
+        set: function () { orig.set.call(this, BTN_TEXT); },
+        configurable: true
+      });
+      orig.set.call(btn, BTN_TEXT);
+      // Belt-and-suspenders: also pin the attribute (in case Vue reads
+      // from the DOM attribute rather than the property at render time).
+      btn.setAttribute('value', BTN_TEXT);
+    }
+
+    function lockAnySubmit() {
+      lockButton(document.querySelector('.pop-sign-log.register .submit input[type="submit"]'));
+    }
+    lockAnySubmit();
+    new MutationObserver(lockAnySubmit).observe(form, {
+      childList: true, subtree: true
+    });
+    setInterval(lockAnySubmit, 500);
 
     // ---- Inject subtext below the submit button ---------------------------
     const submitWrap = form.querySelector('.submit');
