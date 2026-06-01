@@ -915,16 +915,15 @@
       color: #37465a;
     }
 
-    /* Title — brand blue, single line, slightly tightened */
+    /* Title — brand blue, larger on desktop */
     .pop-sign-log.register hgroup h2,
     .pop-sign-log.register hgroup h2 p {
-      font-size: 20px !important;
+      font-size: 25px !important;
       line-height: 1.2 !important;
       color: #3e5da4 !important;
       font-family: var(--font-bold, inherit) !important;
       font-weight: 800 !important;
       margin: 0 0 10px !important;
-      white-space: nowrap;
       letter-spacing: -0.3px;
       text-align: center;
     }
@@ -1034,8 +1033,7 @@
       .pop-sign-log.register .lof-search-by ul { columns: 1; }
       .pop-sign-log.register hgroup h2,
       .pop-sign-log.register hgroup h2 p {
-        font-size: 16px !important;
-        white-space: normal;
+        font-size: 20px !important;
       }
     }
 
