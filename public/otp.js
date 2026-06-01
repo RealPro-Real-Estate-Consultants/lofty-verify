@@ -217,6 +217,77 @@
     // The real phone is written in via setReactiveValue() right before submit.
     const container = phoneInput.closest('.v-input');
     if (container) container.style.display = 'none';
+
+    enhanceRegisterForm();
+  }
+
+  // Injects rich content (bullet lists, serving area, privacy note) and
+  // the under-button subtext into the Lofty register popup. Idempotent.
+  function enhanceRegisterForm() {
+    const popup = document.querySelector('.pop-sign-log.register');
+    if (!popup || popup.dataset.otpEnhanced === '1') return;
+    popup.dataset.otpEnhanced = '1';
+
+    const form = popup.querySelector('form');
+    if (!form) return;
+    const firstInput = form.querySelector('.v-input');
+    if (!firstInput) return;
+
+    // ---- Inject rich content above the form fields ------------------------
+    const enrich = document.createElement('div');
+    enrich.className = 'lof-form-enrich';
+    enrich.innerHTML = `
+      <div class="lof-search-by">
+        <h4>Search by:</h4>
+        <ul>
+          <li>Gulf Access</li>
+          <li>Canal Width</li>
+          <li>Boat Lift</li>
+          <li>Golf Communities</li>
+          <li>55+ Communities</li>
+          <li>Pet Restrictions</li>
+          <li>HOA Requirements</li>
+          <li>Insurance Requirements</li>
+          <li>New Construction</li>
+          <li>Acreage</li>
+          <li>+41 other local MLS fields</li>
+        </ul>
+      </div>
+      <div class="lof-unlock">
+        <h4>Unlock advanced home search tools:</h4>
+        <ul>
+          <li>Discover private opportunities when available</li>
+          <li>Access advanced MLS search filters</li>
+          <li>Receive instant property alerts and price reductions</li>
+          <li>Save searches and favorite properties</li>
+        </ul>
+      </div>
+      <p class="lof-serving">
+        <b>Serving</b> Cape Coral, Fort Myers, Fort Myers Beach, Estero,
+        Bonita Springs, Sanibel, Captiva, Naples, and Marco Island.
+      </p>
+      <p class="lof-privacy-note">
+        <b>We respect your privacy.</b> Your information is never sold to
+        advertisers, lenders, or third-party lead networks.
+      </p>
+      <hr class="lof-form-rule">
+    `;
+    firstInput.parentNode.insertBefore(enrich, firstInput);
+
+    // ---- Inject subtext below the submit button ---------------------------
+    const submitWrap = form.querySelector('.submit');
+    if (submitWrap) {
+      const note = document.createElement('p');
+      note.className = 'lof-submit-note';
+      note.textContent =
+        'Phone verification is required on the next step to protect your ' +
+        'account and provide accurate property alerts.';
+      if (submitWrap.nextSibling) {
+        submitWrap.parentNode.insertBefore(note, submitWrap.nextSibling);
+      } else {
+        submitWrap.parentNode.appendChild(note);
+      }
+    }
   }
 
   // ==========================================================================
@@ -832,6 +903,92 @@
   // ==========================================================================
   const style = document.createElement('style');
   style.textContent = `
+    /* ===== Lofty register popup enhancements ===== */
+    .pop-sign-log.register .lof-form-enrich {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      color: #1f2a44; margin: 4px 0 18px;
+    }
+    .pop-sign-log.register .lof-form-enrich h4 {
+      color: #2b5fdb; font-size: 14.5px; font-weight: 700;
+      margin: 16px 0 8px;
+    }
+    .pop-sign-log.register .lof-form-enrich ul {
+      list-style: disc; padding-left: 22px; margin: 0;
+      font-size: 13.5px; color: #1f2a44;
+    }
+    .pop-sign-log.register .lof-form-enrich li {
+      padding: 2px 0; line-height: 1.5;
+    }
+    .pop-sign-log.register .lof-search-by ul {
+      columns: 2; column-gap: 24px;
+    }
+    .pop-sign-log.register .lof-search-by ul li {
+      break-inside: avoid;
+    }
+    .pop-sign-log.register .lof-serving,
+    .pop-sign-log.register .lof-privacy-note {
+      margin: 14px 0 0; font-size: 13.5px; color: #1f2a44; line-height: 1.5;
+    }
+    .pop-sign-log.register .lof-serving b,
+    .pop-sign-log.register .lof-privacy-note b {
+      color: #2b5fdb; font-weight: 700;
+    }
+    .pop-sign-log.register .lof-form-rule {
+      border: 0; border-top: 1px solid #e5e8ee; margin: 20px 0 18px;
+    }
+
+    /* Form-field restyling: labels above, navy button, etc. */
+    .pop-sign-log.register .v-input { margin-bottom: 14px; }
+    .pop-sign-log.register .v-input .input-container {
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .pop-sign-log.register .v-input .prompt {
+      position: static !important;
+      transform: none !important;
+      font-size: 13.5px; font-weight: 700;
+      color: #0f1b3d;
+      order: -1; padding: 0; background: transparent !important;
+    }
+    .pop-sign-log.register .v-input input {
+      border: 1px solid #d8dfeb !important;
+      border-radius: 8px;
+      padding: 12px !important;
+      font-size: 14.5px;
+    }
+    .pop-sign-log.register .v-input input::placeholder {
+      color: #8b93a7;
+    }
+
+    /* Submit button — dark navy */
+    .pop-sign-log.register .submit {
+      background: #14213d !important;
+      border-radius: 10px !important;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    .pop-sign-log.register .submit.disabled {
+      background: #c8d0e0 !important;
+    }
+    .pop-sign-log.register .submit input[type="submit"] {
+      background: transparent !important;
+      color: #fff !important;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: 700;
+      font-size: 14px;
+      padding: 16px !important;
+    }
+
+    .pop-sign-log.register .lof-submit-note {
+      text-align: center; font-size: 12px; color: #8b93a7;
+      margin: 14px 6px 0; line-height: 1.55;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    @media (max-width: 480px) {
+      .pop-sign-log.register .lof-search-by ul { columns: 1; }
+    }
+
     /* ===== Shared primitives ===== */
     .lof-overlay {
       position: fixed; inset: 0; z-index: 2147483647;
