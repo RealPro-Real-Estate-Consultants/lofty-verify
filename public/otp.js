@@ -915,15 +915,18 @@
       color: #37465a;
     }
 
-    /* Title — bigger, brand blue, same font as the rest of the site */
+    /* Title — brand blue, single line, slightly tightened */
     .pop-sign-log.register hgroup h2,
     .pop-sign-log.register hgroup h2 p {
-      font-size: 26px !important;
+      font-size: 20px !important;
       line-height: 1.2 !important;
       color: #3e5da4 !important;
       font-family: var(--font-bold, inherit) !important;
       font-weight: 800 !important;
       margin: 0 0 10px !important;
+      white-space: nowrap;
+      letter-spacing: -0.3px;
+      text-align: center;
     }
 
     /* Description — match body text */
@@ -1030,7 +1033,10 @@
     @media (max-width: 480px) {
       .pop-sign-log.register .lof-search-by ul { columns: 1; }
       .pop-sign-log.register hgroup h2,
-      .pop-sign-log.register hgroup h2 p { font-size: 22px !important; }
+      .pop-sign-log.register hgroup h2 p {
+        font-size: 16px !important;
+        white-space: normal;
+      }
     }
 
     /* ===== Shared primitives ===== */
