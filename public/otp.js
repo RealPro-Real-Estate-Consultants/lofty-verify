@@ -274,6 +274,10 @@
     `;
     firstInput.parentNode.insertBefore(enrich, firstInput);
 
+    // ---- Update submit button text ----------------------------------------
+    const submitInput = form.querySelector('.submit input[type="submit"]');
+    if (submitInput) submitInput.value = 'CONTINUE TO ADVANCED HOME SEARCH';
+
     // ---- Inject subtext below the submit button ---------------------------
     const submitWrap = form.querySelector('.submit');
     if (submitWrap) {
@@ -904,17 +908,45 @@
   const style = document.createElement('style');
   style.textContent = `
     /* ===== Lofty register popup enhancements ===== */
-    .pop-sign-log.register .lof-form-enrich {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-      color: #1f2a44; margin: 4px 0 18px;
+    /* Inherit the site's font (var(--font-normal) / --font-bold) everywhere. */
+    .pop-sign-log.register .lof-form-enrich,
+    .pop-sign-log.register .lof-submit-note {
+      font-family: inherit;
+      color: #37465a;
     }
+
+    /* Title — bigger, brand blue, same font as the rest of the site */
+    .pop-sign-log.register hgroup h2,
+    .pop-sign-log.register hgroup h2 p {
+      font-size: 26px !important;
+      line-height: 1.2 !important;
+      color: #3e5da4 !important;
+      font-family: var(--font-bold, inherit) !important;
+      font-weight: 800 !important;
+      margin: 0 0 10px !important;
+    }
+
+    /* Description — match body text */
+    .pop-sign-log.register hgroup h3,
+    .pop-sign-log.register hgroup h3 p {
+      font-size: 13.5px !important;
+      line-height: 1.55 !important;
+      color: #37465a !important;
+      font-family: var(--font-normal, inherit) !important;
+      font-weight: 400 !important;
+      margin: 0 0 6px !important;
+    }
+
+    /* Injected rich content */
+    .pop-sign-log.register .lof-form-enrich { margin: 6px 0 14px; }
     .pop-sign-log.register .lof-form-enrich h4 {
-      color: #2b5fdb; font-size: 14.5px; font-weight: 700;
-      margin: 16px 0 8px;
+      color: #3e5da4; font-size: 14.5px; font-weight: 700;
+      margin: 14px 0 6px;
+      font-family: var(--font-bold, inherit);
     }
     .pop-sign-log.register .lof-form-enrich ul {
       list-style: disc; padding-left: 22px; margin: 0;
-      font-size: 13.5px; color: #1f2a44;
+      font-size: 13.5px; color: #37465a;
     }
     .pop-sign-log.register .lof-form-enrich li {
       padding: 2px 0; line-height: 1.5;
@@ -927,44 +959,54 @@
     }
     .pop-sign-log.register .lof-serving,
     .pop-sign-log.register .lof-privacy-note {
-      margin: 14px 0 0; font-size: 13.5px; color: #1f2a44; line-height: 1.5;
+      margin: 12px 0 0; font-size: 13.5px; color: #37465a; line-height: 1.5;
     }
     .pop-sign-log.register .lof-serving b,
     .pop-sign-log.register .lof-privacy-note b {
-      color: #2b5fdb; font-weight: 700;
+      color: #3e5da4; font-weight: 700;
     }
     .pop-sign-log.register .lof-form-rule {
-      border: 0; border-top: 1px solid #e5e8ee; margin: 20px 0 18px;
+      border: 0; border-top: 1px solid #e5e8ee; margin: 16px 0 12px;
     }
 
-    /* Form-field restyling: labels above, navy button, etc. */
-    .pop-sign-log.register .v-input { margin-bottom: 14px; }
+    /* Compact form fields */
+    .pop-sign-log.register .v-input { margin-bottom: 8px; }
     .pop-sign-log.register .v-input .input-container {
-      display: flex; flex-direction: column; gap: 4px;
+      display: flex; flex-direction: column; gap: 3px;
     }
     .pop-sign-log.register .v-input .prompt {
       position: static !important;
       transform: none !important;
-      font-size: 13.5px; font-weight: 700;
-      color: #0f1b3d;
+      font-size: 12.5px; font-weight: 700;
+      color: #37465a;
       order: -1; padding: 0; background: transparent !important;
+      font-family: var(--font-bold, inherit);
     }
     .pop-sign-log.register .v-input input {
       border: 1px solid #d8dfeb !important;
-      border-radius: 8px;
-      padding: 12px !important;
-      font-size: 14.5px;
+      border-radius: 6px;
+      padding: 8px 10px !important;
+      font-size: 13.5px;
+      height: auto !important;
+      min-height: 0 !important;
+      font-family: var(--font-normal, inherit);
+      color: #37465a;
     }
     .pop-sign-log.register .v-input input::placeholder {
-      color: #8b93a7;
+      color: #a5adbf;
+    }
+    .pop-sign-log.register .v-input input:focus {
+      border-color: #3e5da4 !important;
+      box-shadow: 0 0 0 3px rgba(62, 93, 164, 0.12);
+      outline: none;
     }
 
     /* Submit button — dark navy */
     .pop-sign-log.register .submit {
       background: #14213d !important;
-      border-radius: 10px !important;
+      border-radius: 8px !important;
       overflow: hidden;
-      margin-top: 12px;
+      margin-top: 10px;
     }
     .pop-sign-log.register .submit.disabled {
       background: #c8d0e0 !important;
@@ -975,18 +1017,20 @@
       text-transform: uppercase;
       letter-spacing: 1px;
       font-weight: 700;
-      font-size: 14px;
-      padding: 16px !important;
+      font-size: 13.5px;
+      padding: 14px !important;
+      font-family: var(--font-bold, inherit);
     }
 
     .pop-sign-log.register .lof-submit-note {
       text-align: center; font-size: 12px; color: #8b93a7;
-      margin: 14px 6px 0; line-height: 1.55;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      margin: 12px 6px 0; line-height: 1.55;
     }
 
     @media (max-width: 480px) {
       .pop-sign-log.register .lof-search-by ul { columns: 1; }
+      .pop-sign-log.register hgroup h2,
+      .pop-sign-log.register hgroup h2 p { font-size: 22px !important; }
     }
 
     /* ===== Shared primitives ===== */
