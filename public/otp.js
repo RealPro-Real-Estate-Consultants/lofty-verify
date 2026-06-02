@@ -59,6 +59,13 @@
   let bypassRegister = false;
   const hooked = new WeakSet();
 
+  // ---- Preview mode --------------------------------------------------------
+  // Enable with `?lof-preview=phone|otp|edit|success` in the URL, OR call
+  // window.__lofPreview.phone() / .otp() / .edit() / .success() in the console.
+  // In preview mode all backend calls are stubbed (no SMS is sent) and the
+  // OTP modal will accept any 6-digit code as "approved".
+  let previewMode = false;
+
   // ---- Utilities -----------------------------------------------------------
   function normalizePhone(raw) {
     const d = (raw || '').replace(/\D/g, '');
@@ -87,6 +94,14 @@
   }
 
   function post(path, body) {
+    if (previewMode) {
+      console.log('[lof-preview] would POST', path, body);
+      // /verify-otp returns approved so any code passes through.
+      return Promise.resolve({
+        ok: true,
+        json: function () { return Promise.resolve({ status: 'approved' }); }
+      });
+    }
     return fetch(BACKEND + path, {
       method: 'POST',
       headers: HEADERS,
@@ -158,6 +173,19 @@
     handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-2 2-3-3-3 3 3-3-3-3 6-6 4 4M13 7l3-3 6 6-4 4-4-4"/><path d="M14 14l3 3"/></svg>',
     eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     flagUS: '<svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice"><rect width="30" height="20" fill="#B22234"/><rect width="30" height="1.54" y="1.54" fill="#fff"/><rect width="30" height="1.54" y="4.62" fill="#fff"/><rect width="30" height="1.54" y="7.69" fill="#fff"/><rect width="30" height="1.54" y="10.77" fill="#fff"/><rect width="30" height="1.54" y="13.85" fill="#fff"/><rect width="30" height="1.54" y="16.92" fill="#fff"/><rect width="12" height="10.77" fill="#3C3B6E"/></svg>',
+    flagCA: '<svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice"><rect width="30" height="20" fill="#fff"/><rect width="7.5" height="20" fill="#d52b1e"/><rect x="22.5" width="7.5" height="20" fill="#d52b1e"/><path d="M15 5.5 L15.7 7.3 L17.5 6.8 L16.9 8.7 L18.5 9.5 L17 10.3 L17.5 12.2 L15.7 11.6 L15 13.5 L14.3 11.6 L12.5 12.2 L13 10.3 L11.5 9.5 L13.1 8.7 L12.5 6.8 L14.3 7.3 Z" fill="#d52b1e"/></svg>',
+    caret: '<svg viewBox="0 0 12 8" fill="currentColor"><path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
+    chatCircle: '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#14213d"/><path d="M11 17a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4h-6.5l-3.5 3.5V25h-0.5a4 4 0 0 1-3.5-4z" fill="#fff"/></svg>',
+    shieldOrange:
+      '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">' +
+        '<defs><linearGradient id="lofShOrange" x1="0" y1="0" x2="0" y2="1">' +
+          '<stop offset="0%" stop-color="#fdba74"/>' +
+          '<stop offset="100%" stop-color="#ea580c"/>' +
+        '</linearGradient></defs>' +
+        '<path d="M16 2L4 7v9c0 7.5 5 13.5 12 16 7-2.5 12-8.5 12-16V7L16 2z" fill="url(#lofShOrange)"/>' +
+        '<path d="M10 16l4 4 9-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>',
+    planeFilled: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 2.5L1.6 10.4c-.7.3-.7 1.3 0 1.5l5.4 1.7 2.1 6.7c.2.8 1.2.9 1.6.2L22.7 3.6c.4-.5-.1-1.3-.7-1.1z"/></svg>',
     houseLock: '<svg viewBox="0 0 40 40" fill="none"><path d="M5 17L20 5l15 12v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V17z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><path d="M15 34V24h10v10" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><circle cx="31" cy="31" r="7" fill="currentColor" stroke="#fff8ed" stroke-width="2"/><rect x="28" y="30" width="6" height="4.5" rx="0.6" fill="#fff"/><path d="M29.3 30v-1.6a1.7 1.7 0 0 1 3.4 0V30" stroke="#fff" stroke-width="1.1" fill="none"/></svg>',
     shieldCheck: '<svg viewBox="0 0 40 40"><path d="M20 3L4 9v11c0 9.5 6.5 17.5 16 19 9.5-1.5 16-9.5 16-19V9z" fill="#2b5fdb"/><path d="M12 21l5 5 11-12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
@@ -186,17 +214,23 @@
         '<rect x="84" y="36" width="72" height="144" rx="9" fill="#f7f9fd"/>' +
         '<rect x="105" y="42" width="30" height="6.5" rx="3.25" fill="#1e3a8a"/>' +
         '<rect x="106" y="180" width="28" height="2.6" rx="1.3" fill="#1e3a8a" opacity=".25"/>' +
-        '<rect x="100" y="60" width="100" height="68" rx="12" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
-        '<path d="M115 128 L108 142 L125 128 Z" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
-        '<line x1="116" y1="128" x2="124" y2="128" stroke="#fff" stroke-width="2.5"/>' +
-        '<g transform="translate(150 78)">' +
-          '<path d="M-6 6 V2 A6 6 0 0 1 6 2 V6" fill="none" stroke="#1e3a8a" stroke-width="2.4"/>' +
-          '<rect x="-8" y="6" width="16" height="13" rx="2" fill="#1e3a8a"/>' +
-          '<circle cx="0" cy="12" r="1.5" fill="#fff"/>' +
+        // Speech bubble — shorter so lock+stars sit on one line
+        '<rect x="98" y="72" width="104" height="44" rx="10" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
+        '<path d="M112 116 L106 130 L122 116 Z" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
+        '<line x1="113" y1="116" x2="121" y2="116" stroke="#fff" stroke-width="2.5"/>' +
+        // Lock (centered vertically at y=94 inside the bubble)
+        '<g transform="translate(116 94)">' +
+          '<path d="M-4 0 V-3.5 A4 4 0 0 1 4 -3.5 V0" fill="none" stroke="#1e3a8a" stroke-width="1.8"/>' +
+          '<rect x="-5.5" y="0" width="11" height="9" rx="1.3" fill="#1e3a8a"/>' +
+          '<circle cx="0" cy="4.5" r="1" fill="#fff"/>' +
         '</g>' +
+        // 5 stars to the right of the lock, same baseline
         '<g fill="#1e3a8a">' +
-          '<circle cx="125" cy="112" r="3"/><circle cx="138" cy="112" r="3"/><circle cx="150" cy="112" r="3"/>' +
-          '<circle cx="162" cy="112" r="3"/><circle cx="175" cy="112" r="3"/>' +
+          '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(138 94)"/>' +
+          '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(152 94)"/>' +
+          '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(166 94)"/>' +
+          '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(180 94)"/>' +
+          '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(194 94)"/>' +
         '</g>' +
       '</svg>'
   };
@@ -379,14 +413,31 @@
             <p class="lof-sub-sm">Enter your number below and we'll text you a code right away.</p>
 
             <div class="lof-tel-row">
-              <span class="lof-flag" aria-hidden="true">${ICONS.flagUS}</span>
+              <div class="lof-country" id="lof-country">
+                <button class="lof-country-btn" type="button" aria-haspopup="listbox" aria-expanded="false">
+                  <span class="lof-flag-current">${ICONS.flagUS}</span>
+                  <span class="lof-caret">${ICONS.caret}</span>
+                </button>
+                <ul class="lof-country-menu" role="listbox" hidden>
+                  <li role="option" data-country="US" data-flag="flagUS">
+                    <span class="lof-flag-mini">${ICONS.flagUS}</span>
+                    <span class="lof-country-name">United States</span>
+                    <span class="lof-dial">+1</span>
+                  </li>
+                  <li role="option" data-country="CA" data-flag="flagCA">
+                    <span class="lof-flag-mini">${ICONS.flagCA}</span>
+                    <span class="lof-country-name">Canada</span>
+                    <span class="lof-dial">+1</span>
+                  </li>
+                </ul>
+              </div>
               <input id="lof-phone" type="tel" inputmode="numeric" autocomplete="tel"
                      placeholder="(XXX) XXX-XXXX" maxlength="14">
             </div>
             <p class="lof-err" id="lof-phone-err"></p>
 
             <button id="lof-send" type="button" class="lof-btn-primary">
-              <span class="lof-svg lof-plane">${ICONS.plane}</span>
+              <span class="lof-svg lof-plane">${ICONS.planeFilled}</span>
               Text Me the Code
             </button>
 
@@ -399,7 +450,7 @@
 
             <div class="lof-privacy-box">
               <div class="lof-privacy-head">
-                <span class="lof-svg lof-shield">${ICONS.shield}</span>
+                <span class="lof-svg lof-shield">${ICONS.shieldOrange}</span>
                 <strong>Your Privacy Matters</strong>
               </div>
               <ul>
@@ -414,11 +465,10 @@
         <!-- bottom CTA bar -->
         <div class="lof-bottom-bar">
           <div class="lof-bar-left">
-            <span class="lof-svg lof-bar-chat">${ICONS.chat}</span>
-            <div>
-              <strong>Questions? Text us anytime.</strong>
-              <span class="lof-bar-sub">We're local and happy to help!</span>
-            </div>
+            <span class="lof-svg lof-bar-chat">${ICONS.chatCircle}</span>
+            <span class="lof-bar-text">
+              <strong>Questions? Text us anytime.</strong> We're local and happy to help!
+            </span>
           </div>
           <a href="tel:+1${COMPANY_PHONE.replace(/-/g, '')}" class="lof-bar-phone">
             <span class="lof-svg">${ICONS.phone}</span>
@@ -433,6 +483,32 @@
     const phoneEl = overlay.querySelector('#lof-phone');
     const errEl   = overlay.querySelector('#lof-phone-err');
     const sendBtn = overlay.querySelector('#lof-send');
+
+    // Country dropdown
+    const countryRoot = overlay.querySelector('#lof-country');
+    const countryBtn  = countryRoot.querySelector('.lof-country-btn');
+    const countryMenu = countryRoot.querySelector('.lof-country-menu');
+    const flagCurrent = countryRoot.querySelector('.lof-flag-current');
+    countryBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      const willOpen = countryMenu.hidden;
+      countryMenu.hidden = !willOpen;
+      countryBtn.setAttribute('aria-expanded', String(willOpen));
+    });
+    countryMenu.querySelectorAll('li').forEach(function (li) {
+      li.addEventListener('click', function () {
+        const flag = ICONS[li.dataset.flag];
+        if (flag) flagCurrent.innerHTML = flag;
+        countryMenu.hidden = true;
+        countryBtn.setAttribute('aria-expanded', 'false');
+      });
+    });
+    document.addEventListener('click', function (e) {
+      if (!countryRoot.contains(e.target)) {
+        countryMenu.hidden = true;
+        countryBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
 
     // Live phone formatting
     phoneEl.addEventListener('input', function () {
@@ -1099,9 +1175,9 @@
     .lof-svg { display: inline-flex; align-items: center; justify-content: center; }
     .lof-svg svg { width: 100%; height: 100%; display: block; }
     .lof-center { text-align: center; }
-    .lof-h2 { font-size: 30px; line-height: 1.2; font-weight: 800; margin: 0 0 10px; color: #0f1b3d; }
+    .lof-h2 { font-size: 28px; line-height: 1.2; font-weight: 700; margin: 0 0 10px; color: #0f1b3d; letter-spacing: -0.3px; }
     .lof-h3 { font-size: 20px; line-height: 1.3; font-weight: 700; margin: 0 0 6px; color: #0f1b3d; }
-    .lof-sub { font-size: 14.5px; color: #4d586e; line-height: 1.55; margin: 0 0 16px; }
+    .lof-sub { font-size: 15.5px; color: #4d586e; line-height: 1.55; margin: 0 0 16px; }
     .lof-sub-sm { font-size: 13.5px; color: #4d586e; line-height: 1.5; margin: 0 0 14px; }
     .lof-err { min-height: 16px; font-size: 12.5px; color: #c33; margin: 4px 0 8px; }
     .lof-fineprint { font-size: 11.5px; color: #8b93a7; line-height: 1.5; margin: 10px 0 0; }
@@ -1151,25 +1227,62 @@
       display: flex; align-items: center; justify-content: center;
     }
     .lof-phone-illu svg { width: 100%; height: 100%; }
+    .lof-phone-right .lof-h3,
+    .lof-phone-right .lof-sub-sm { text-align: center; }
     .lof-tel-row {
-      display: flex; gap: 8px; align-items: stretch;
-      border: 1px solid #d0d6e2; border-radius: 10px; padding: 0 6px 0 12px;
-      background: #fff;
+      display: flex; gap: 0; align-items: stretch;
+      border: 1px solid #d0d6e2; border-radius: 10px;
+      background: #fff; overflow: visible; position: relative;
     }
     .lof-tel-row:focus-within {
       border-color: #2b5fdb;
       box-shadow: 0 0 0 3px rgba(43, 95, 219, 0.15);
     }
-    .lof-flag {
-      display: inline-flex; align-items: center;
-      padding-right: 10px; margin-right: 2px;
+
+    /* Country dropdown */
+    .lof-country { position: relative; }
+    .lof-country-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 10px 0 12px; height: 100%;
+      background: transparent; border: 0; cursor: pointer;
       border-right: 1px solid #eef2f9;
     }
-    .lof-flag svg {
+    .lof-flag-current {
+      display: inline-flex; align-items: center;
+    }
+    .lof-flag-current svg {
       width: 26px; height: 18px;
       border-radius: 2px;
-      box-shadow: 0 0 0 1px rgba(0,0,0,.06);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.08);
     }
+    .lof-caret {
+      width: 10px; height: 6px; color: #5a6478;
+      display: inline-flex; align-items: center;
+    }
+    .lof-caret svg { width: 100%; height: 100%; }
+    .lof-country-menu {
+      position: absolute; top: calc(100% + 6px); left: -1px;
+      list-style: none; margin: 0; padding: 6px;
+      background: #fff; border: 1px solid #d8dfeb;
+      border-radius: 10px; box-shadow: 0 8px 24px rgba(15,23,42,.12);
+      min-width: 200px; z-index: 5;
+    }
+    .lof-country-menu[hidden] { display: none; }
+    .lof-country-menu li {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 6px;
+      font-size: 13.5px; color: #1f2a44; cursor: pointer;
+    }
+    .lof-country-menu li:hover { background: #f5f7fb; }
+    .lof-flag-mini {
+      display: inline-flex; flex-shrink: 0;
+    }
+    .lof-flag-mini svg {
+      width: 22px; height: 15px; border-radius: 2px;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.08);
+    }
+    .lof-country-name { flex: 1; }
+    .lof-dial { color: #8b93a7; font-size: 12.5px; }
     .lof-tel-row input {
       flex: 1; border: 0; outline: none; padding: 12px 8px;
       font-size: 16px; color: #1f2a44; background: transparent;
@@ -1186,34 +1299,46 @@
     .lof-or span { background: transparent; padding: 0 8px; }
     .lof-privacy-box {
       background: #fff8e7; border: 1px solid #ffe8a8;
-      border-radius: 10px; padding: 14px 16px;
+      border-radius: 10px; padding: 16px 18px;
     }
     .lof-privacy-head {
-      display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 12px; margin-bottom: 8px;
     }
-    .lof-shield { width: 22px; height: 22px; color: #f59e0b; }
-    .lof-privacy-head strong { font-size: 14px; color: #92660b; font-weight: 700; }
-    .lof-privacy-box ul { list-style: none; margin: 0; padding: 0; font-size: 12.5px; color: #6b5414; }
-    .lof-privacy-box li { padding: 3px 0; line-height: 1.45; }
-    .lof-privacy-box li:before { content: '✓ '; color: #f59e0b; font-weight: bold; margin-right: 4px; }
+    .lof-shield { width: 34px; height: 34px; flex-shrink: 0; }
+    .lof-shield svg { width: 100%; height: 100%; }
+    .lof-privacy-head strong { font-size: 15px; color: #b45309; font-weight: 700; }
+    /* Indent bullets so the bullet markers line up with "Your Privacy Matters" */
+    .lof-privacy-box ul {
+      list-style: disc;
+      margin: 4px 0 0 46px;
+      padding: 0;
+      font-size: 12.5px; color: #7c5418;
+    }
+    .lof-privacy-box li { padding: 2px 0; line-height: 1.45; }
+    .lof-privacy-box li::marker { color: #f59e0b; }
 
     .lof-bottom-bar {
       grid-column: 1 / -1;
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 14px 24px; background: #14213d; color: #fff;
+      padding: 14px 24px;
+      background: #e8eefc;
+      color: #14213d;
       flex-wrap: wrap;
     }
-    .lof-bar-left { display: flex; align-items: center; gap: 12px; }
-    .lof-bar-chat { width: 24px; height: 24px; color: #fcce17; }
-    .lof-bar-left strong { display: block; font-size: 14px; }
-    .lof-bar-sub { font-size: 12px; color: #b8c5e0; }
+    .lof-bar-left { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; }
+    .lof-bar-chat { width: 32px; height: 32px; flex-shrink: 0; }
+    .lof-bar-chat svg { width: 100%; height: 100%; }
+    .lof-bar-text { font-size: 14px; color: #14213d; line-height: 1.3; }
+    .lof-bar-text strong { font-weight: 700; }
     .lof-bar-phone {
       display: inline-flex; align-items: center; gap: 8px;
-      background: #fcce17; color: #14213d; text-decoration: none;
-      padding: 10px 16px; border-radius: 8px; font-weight: 700; font-size: 14px;
+      background: #fff; color: #14213d; text-decoration: none;
+      padding: 10px 16px; border: 2px solid #14213d;
+      border-radius: 8px; font-weight: 700; font-size: 14px;
+      transition: background .15s;
     }
-    .lof-bar-phone .lof-svg { width: 16px; height: 16px; }
-    .lof-bar-phone:hover { background: #e8bb14; }
+    .lof-bar-phone .lof-svg { width: 16px; height: 16px; color: #14213d; }
+    .lof-bar-phone:hover { background: #f5f7fb; }
 
     /* Phone modal grid → bottom bar; wrap into the same flow */
     .lof-phone-card > .lof-phone-grid { }
@@ -1447,4 +1572,61 @@
     }
   `;
   document.head.appendChild(style);
+
+  // ==========================================================================
+  //  Preview API
+  // ==========================================================================
+  //  Open any modal directly without going through the registration flow.
+  //
+  //  URL:        https://everyswflhome.com/?lof-preview=phone
+  //              ?lof-preview=otp        — opens OTP modal w/ dummy number
+  //              ?lof-preview=edit       — opens "change phone" submodal
+  //              ?lof-preview=success    — opens success modal
+  //
+  //  Console:    window.__lofPreview.phone()
+  //              window.__lofPreview.otp('12395550100')      // pass a phone
+  //              window.__lofPreview.edit('2395550100')
+  //              window.__lofPreview.success()
+  //              window.__lofPreview.off()                   // exit preview mode
+  //
+  //  In preview mode the backend is stubbed — no SMS is sent, and any 6-digit
+  //  code entered on the OTP modal is accepted.
+  // ==========================================================================
+  function enterPreview()  { previewMode = true;  document.documentElement.dataset.lofPreview = '1'; }
+  function exitPreview()   { previewMode = false; delete document.documentElement.dataset.lofPreview; }
+  function purgeOverlays() { document.querySelectorAll('.lof-overlay').forEach(function (o) { o.remove(); }); document.documentElement.style.overflow = ''; }
+
+  window.__lofPreview = {
+    phone: function () {
+      enterPreview(); purgeOverlays();
+      buildPhoneModal(document.createElement('button'));  // dummy submit btn
+    },
+    otp: function (phone) {
+      enterPreview(); purgeOverlays();
+      buildOTPModal(phone || '12395550100');
+    },
+    edit: function (localPhone) {
+      enterPreview(); purgeOverlays();
+      buildEditPhoneModal(
+        localPhone || '2395550100',
+        function (e164) { console.log('[lof-preview] submit', e164); },
+        function ()     { console.log('[lof-preview] cancel'); }
+      );
+    },
+    success: function () {
+      enterPreview(); purgeOverlays();
+      buildSuccessModal();
+    },
+    off: function () {
+      exitPreview(); purgeOverlays();
+    }
+  };
+
+  // Auto-open via ?lof-preview=<name>
+  try {
+    const which = new URLSearchParams(window.location.search).get('lof-preview');
+    if (which && typeof window.__lofPreview[which] === 'function') {
+      setTimeout(function () { window.__lofPreview[which](); }, 200);
+    }
+  } catch (e) { /* ignore */ }
 })();
