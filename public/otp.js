@@ -47,12 +47,16 @@
   const CODE_TTL_SECONDS = 600;
   const RESEND_COOLDOWN = 30;
   const COMPANY_PHONE = '239-202-0788';
-  const SEARCH_URL = '/listing';   // where the "Start Searching Homes" button takes the user
+  const SEARCH_URL = 'https://everyswflhome.com/listing';   // where the "Start Searching Homes" button takes the user
   const HEADERS = { 'Content-Type': 'application/json' };
 
-  // Florida-style house photo for the off-market section of the success modal.
-  // Replace this URL with your own listing photo if desired.
-  const HOUSE_PHOTO = 'https://images.unsplash.com/photo-1605276373954-0c4a0dac5b12?auto=format&fit=crop&w=900&q=70';
+  // House photo for the off-market section. Served from the Railway /public
+  // folder in production; from a relative path when running preview.html offline.
+  // File lives at lofty-verify/public/success modal image.png.
+  const HOUSE_PHOTO_FILE = 'success%20modal%20image.png';
+  const HOUSE_PHOTO = location.protocol === 'file:'
+    ? 'public/' + HOUSE_PHOTO_FILE
+    : BACKEND + '/' + HOUSE_PHOTO_FILE;
 
   // ---- State ---------------------------------------------------------------
   let verified = false;
@@ -157,51 +161,169 @@
   const ICONS = {
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>',
     search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/></svg>',
-    key: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><line x1="10.85" y1="12.15" x2="22" y2="1"/><line x1="18" y1="5" x2="22" y2="9"/><line x1="15" y1="8" x2="19" y2="12"/></svg>',
+    key: '<svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"><g transform="rotate(135 12 12)"><path d="M3 12a5 5 0 1 1 10 0 5 5 0 0 1-10 0zm5-1.8a1.8 1.8 0 1 0 0 3.6 1.8 1.8 0 0 0 0-3.6z"/><rect x="8" y="10.5" width="15" height="3"/><rect x="17" y="13.5" width="2.5" height="4.5"/><rect x="20.5" y="13.5" width="2.5" height="4.5"/></g></svg>',
     heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>',
-    bellDollar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M12 11v4M10.5 13.5h3"/></svg>',
-    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    bellDollar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>',
+    chart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="13" width="6" height="8"/><rect x="9" y="8" width="6" height="13"/><rect x="15" y="3" width="6" height="18"/></svg>',
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
     phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>',
     plane: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.7 2.3a1 1 0 0 0-1.02-.24L2.65 8.04a1 1 0 0 0-.06 1.86l6.85 2.92 2.92 6.85a1 1 0 0 0 1.86-.06l5.98-18.03a1 1 0 0 0-.5-1.28zM10.5 13.5l-4.3-1.84L18.6 6.5l-8.1 7zm1 1l7-8.1-5.16 12.4-1.84-4.3z"/></svg>',
     shield: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.4-1.4L10 14.2l6.6-6.6L18 9l-8 8z"/></svg>',
-    checkBig: '<svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="38" fill="#fff" stroke="#22c55e" stroke-width="3"/><path d="M22 41l13 13 24-26" fill="none" stroke="#22c55e" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-    house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>',
+    checkBig:
+      '<svg viewBox="0 0 140 80" xmlns="http://www.w3.org/2000/svg">' +
+        // Single pale-green circle (no outline, soft flat fill)
+        '<circle cx="70" cy="40" r="32" fill="#dcefdf"/>' +
+        // Medium-green checkmark — clean, rounded, naturally tilted up
+        '<path d="M57 40l9 9 19-21" fill="none" stroke="#3aa544" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>' +
+        // Left celebration accent lines — top angles down to the right, middle
+        // horizontal, bottom angles up to the right (chevron pointing toward circle).
+        '<g stroke="#6dbd72" stroke-width="2.6" stroke-linecap="round" fill="none">' +
+          '<line x1="12" y1="18" x2="20" y2="24"/>' +
+          '<line x1="6"  y1="40" x2="20" y2="40"/>' +
+          '<line x1="12" y1="62" x2="20" y2="56"/>' +
+        '</g>' +
+        // Right celebration accent lines — mirror (top down-left, mid horizontal, bottom up-left)
+        '<g stroke="#6dbd72" stroke-width="2.6" stroke-linecap="round" fill="none">' +
+          '<line x1="128" y1="18" x2="120" y2="24"/>' +
+          '<line x1="134" y1="40" x2="120" y2="40"/>' +
+          '<line x1="128" y1="62" x2="120" y2="56"/>' +
+        '</g>' +
+      '</svg>',
+    house: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      // Roof eaves overhang the walls (corners at x=2 and x=22, walls at x=5 and x=19)
+      '<path d="M2 9L12 2 22 9 19 9V20a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V9Z"/>' +
+      // Chimney on the right roof slope — 3-sided so it cleanly meets the roof line
+      '<path d="M17 5.5V3.5H18.5V6.5"/>' +
+      // Door
+      '<polyline points="9 22 9 14 15 14 15 22"/>' +
+      '</svg>',
+    houseWide: '<svg viewBox="0 0 30 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+      // Roof: eaves at x=2 / x=28, peak (15, 2); walls at x=6 / x=24
+      '<path d="M2 9L15 2 28 9 24 9V20a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9Z"/>' +
+      // Chimney on right slope
+      '<path d="M22 5.5V3.5H23.5V6.5"/>' +
+      // Door — centered (x=13 → x=17), 7-unit gap to each wall
+      '<polyline points="13 22 13 14 17 14 17 22"/>' +
+      '</svg>',
     keyOff: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 9.5a4 4 0 1 1-5 5l-7 7v-3l1-1 6-6"/><path d="M14.5 9.5L19 5l-2-2-4.5 4.5"/></svg>',
     checkSm: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#f97316"/><path d="M4.5 8.2l2.3 2.3 4.7-5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    checkSmOutline: '<svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.6" stroke="#f97316" stroke-width="1.4"/><path d="M4.8 8.2l2.3 2.3 4.5-5" fill="none" stroke="#f97316" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    checkMark: '<svg viewBox="0 0 16 16" fill="none"><path d="M3 8.5 L6.5 12 L13 4.5" stroke="#f97316" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     mapPin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
-    handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 17l-2 2-3-3-3 3 3-3-3-3 6-6 4 4M13 7l3-3 6 6-4 4-4-4"/><path d="M14 14l3 3"/></svg>',
+    handshake: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
+      // Right-hand fingers gripping back over the wrist
+      '<path d="m11 17 2 2a1 1 0 1 0 3-3"/>' +
+      // Main arm/hand path coming in from the right with the clasp and forearm
+      '<path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"/>' +
+      // Right sleeve / cuff
+      '<path d="m21 3 1 11h-2"/>' +
+      // Left arm/hand swinging in from the lower-left to grip
+      '<path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3"/>' +
+      // Left sleeve / cuff
+      '<path d="M3 4h8"/>' +
+      // LEFT SLEEVE on the OUTER side of the left arm — runs the full height
+      // alongside the left edge of the hand (from top y=3 down to y=14).
+      '<path d="M3 3 L1 3 L0 14 L2 14 Z"/>' +
+      // RIGHT SLEEVE on the OUTER side of the right arm — mirror, full height.
+      '<path d="M21 3 L23 3 L24 14 L22 14 Z"/>' +
+      '</svg>',
     eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>',
     flagUS: '<svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice"><rect width="30" height="20" fill="#B22234"/><rect width="30" height="1.54" y="1.54" fill="#fff"/><rect width="30" height="1.54" y="4.62" fill="#fff"/><rect width="30" height="1.54" y="7.69" fill="#fff"/><rect width="30" height="1.54" y="10.77" fill="#fff"/><rect width="30" height="1.54" y="13.85" fill="#fff"/><rect width="30" height="1.54" y="16.92" fill="#fff"/><rect width="12" height="10.77" fill="#3C3B6E"/></svg>',
     flagCA: '<svg viewBox="0 0 30 20" preserveAspectRatio="xMidYMid slice"><rect width="30" height="20" fill="#fff"/><rect width="7.5" height="20" fill="#d52b1e"/><rect x="22.5" width="7.5" height="20" fill="#d52b1e"/><path d="M15 5.5 L15.7 7.3 L17.5 6.8 L16.9 8.7 L18.5 9.5 L17 10.3 L17.5 12.2 L15.7 11.6 L15 13.5 L14.3 11.6 L12.5 12.2 L13 10.3 L11.5 9.5 L13.1 8.7 L12.5 6.8 L14.3 7.3 Z" fill="#d52b1e"/></svg>',
     caret: '<svg viewBox="0 0 12 8" fill="currentColor"><path d="M1 1l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>',
-    chatCircle: '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#14213d"/><path d="M11 17a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4h-6.5l-3.5 3.5V25h-0.5a4 4 0 0 1-3.5-4z" fill="#fff"/></svg>',
+    chatCircle: '<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#3e5da4"/><path d="M11 17a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4h-6.5l-3.5 3.5V25h-0.5a4 4 0 0 1-3.5-4z" fill="#fff"/></svg>',
     shieldOrange:
-      '<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">' +
+      '<svg viewBox="-3 -3 38 38" xmlns="http://www.w3.org/2000/svg">' +
         '<defs><linearGradient id="lofShOrange" x1="0" y1="0" x2="0" y2="1">' +
           '<stop offset="0%" stop-color="#fdba74"/>' +
           '<stop offset="100%" stop-color="#ea580c"/>' +
         '</linearGradient></defs>' +
+        // Outer outline echoing the shield shape
+        '<path d="M16 -1L1 5.5v10.5c0 8.5 6 15.5 15 18.5 9-3 15-10 15-18.5V5.5L16 -1z" fill="none" stroke="#fdba74" stroke-width="1.4" opacity=".75"/>' +
+        // Inner gradient shield
         '<path d="M16 2L4 7v9c0 7.5 5 13.5 12 16 7-2.5 12-8.5 12-16V7L16 2z" fill="url(#lofShOrange)"/>' +
+        // Checkmark
         '<path d="M10 16l4 4 9-9" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
       '</svg>',
-    planeFilled: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 2.5L1.6 10.4c-.7.3-.7 1.3 0 1.5l5.4 1.7 2.1 6.7c.2.8 1.2.9 1.6.2L22.7 3.6c.4-.5-.1-1.3-.7-1.1z"/></svg>',
-    houseLock: '<svg viewBox="0 0 40 40" fill="none"><path d="M5 17L20 5l15 12v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V17z" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><path d="M15 34V24h10v10" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/><circle cx="31" cy="31" r="7" fill="currentColor" stroke="#fff8ed" stroke-width="2"/><rect x="28" y="30" width="6" height="4.5" rx="0.6" fill="#fff"/><path d="M29.3 30v-1.6a1.7 1.7 0 0 1 3.4 0V30" stroke="#fff" stroke-width="1.1" fill="none"/></svg>',
+    planeFilled: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 L2 9 L11 13 L15 22 Z"/><path d="M22 2 L11 13"/></svg>',
+    houseLock: '<svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">' +
+      // Soft cream circular background
+      '<circle cx="30" cy="30" r="27" fill="#fff1e3"/>' +
+      // Whole house+lock group shifted so its visible bounding box (x:5-37, y:12-46)
+      // is centered on the circle center (30, 30).
+      '<g transform="translate(9 1)">' +
+        // House
+        '<g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">' +
+          '<path d="M5 25L21 12 37 25 33 25V44H9V25Z"/>' +
+          '<path d="M17 44V34a4 4 0 0 1 8 0V44"/>' +
+        '</g>' +
+        // Lock cream halo (cleans house lines behind the lock with a small gap)
+        '<rect x="22" y="33" width="17" height="15" rx="3" fill="#fff1e3"/>' +
+        // Lock body
+        '<rect x="24" y="35" width="13" height="11" rx="2" fill="#fff1e3" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>' +
+        // Shackle
+        '<path d="M27 35V32a3.5 3.5 0 0 1 7 0V35" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>' +
+        // Keyhole
+        '<circle cx="30.5" cy="39.5" r="1.2" fill="currentColor"/>' +
+        '<line x1="30.5" y1="40.3" x2="30.5" y2="43.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>' +
+      '</g>' +
+      '</svg>',
     shieldCheck: '<svg viewBox="0 0 40 40"><path d="M20 3L4 9v11c0 9.5 6.5 17.5 16 19 9.5-1.5 16-9.5 16-19V9z" fill="#2b5fdb"/><path d="M12 21l5 5 11-12" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    shieldCheckOutline:
+      '<svg viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">' +
+        // Outer outlined shield — shoulders curve sharply down from a pointed apex
+        '<path d="M20 2 C18 5 10 8 6 10 V18 C6 27 11 34 20 37 C29 34 34 27 34 18 V10 C30 8 22 5 20 2 Z" ' +
+              'fill="none" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>' +
+        // Inner solid shield, slightly smaller, same silhouette
+        '<path d="M20 6 C18.5 8.5 13 10.5 10 12 V18 C10 25 14 31 20 33 C26 31 30 25 30 18 V12 C27 10.5 21.5 8.5 20 6 Z" ' +
+              'fill="currentColor"/>' +
+        // White check centered inside the solid shield
+        '<path d="M14.5 20 L18.5 24 L26 16.5" ' +
+              'fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '</svg>',
     people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
     shieldHouse:
-      '<svg viewBox="0 0 40 40">' +
-        '<path d="M20 3L4 9v11c0 9.5 6.5 17.5 16 19 9.5-1.5 16-9.5 16-19V9z" fill="#1e3a8a"/>' +
-        '<g transform="translate(20 19)">' +
-          '<path d="M-7 0L0 -6 7 0v9a1 1 0 0 1-1 1H-6a1 1 0 0 1-1-1z" fill="#fff"/>' +
-          '<rect x="-2.5" y="4" width="5" height="6" fill="#1e3a8a"/>' +
+      '<svg viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">' +
+        // Light circular halo
+        '<circle cx="40" cy="40" r="32" fill="#e8eefc"/>' +
+        // Shield — apex y=17, shoulders (22, 25)/(58, 25), bottom (40, 61).
+        // Quadratic curves on each flank bulge outward from the shoulder before
+        // sweeping in to the bottom point — classic heater-shield silhouette.
+        '<path d="M40 17Q30 27 22 25Q19 46 36 58Q40 62 44 58Q61 46 58 25Q50 27 40 17Z" fill="#fff" stroke="#3e5da4" stroke-width="2.2" stroke-linejoin="round"/>' +
+        // House — same scale (0.85), re-centered inside the lifted shield
+        '<g transform="translate(40 39) scale(0.85)">' +
+          // Walls (solid brand-blue rectangle)
+          '<rect x="-9" y="-2" width="18" height="13" fill="#3e5da4"/>' +
+          // Door (white cut-out, centered, reaches floor)
+          '<rect x="-2.1" y="3.6" width="4.2" height="8.4" fill="#fff" rx="0.4"/>' +
+          // Door knob
+          '<circle cx="1.2" cy="8" r="0.42" fill="#3e5da4"/>' +
+          // Grid window above the door
+          '<rect x="-3.4" y="-1.4" width="6.8" height="3.6" fill="#fff" rx="0.4"/>' +
+          '<line x1="0" y1="-1.4" x2="0" y2="2.2" stroke="#3e5da4" stroke-width="0.55"/>' +
+          '<line x1="-3.4" y1="0.4" x2="3.4" y2="0.4" stroke="#3e5da4" stroke-width="0.55"/>' +
+          // Roof — thicker brand-blue outline, lighter-blue fill, eaves overhang the walls
+          '<path d="M-10.8 -2L0 -11 10.8 -2Z" fill="#a8b8de" stroke="#3e5da4" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>' +
+          // Chimney on the right slope (slanted bottom follows the roof line)
+          '<path d="M3.6 -12L5.2 -12 5.2 -5.8 3.6 -7.2Z" fill="#3e5da4"/>' +
+          // Chimney cap
+          '<rect x="3.2" y="-12.5" width="2.4" height="0.7" fill="#3e5da4" rx="0.15"/>' +
         '</g>' +
       '</svg>',
     sparkle: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 6.6L21 11l-6.6 2.4L12 20l-2.4-6.6L3 11l6.6-2.4z"/><circle cx="19" cy="5" r="1.5"/><circle cx="5" cy="19" r="1.5"/></svg>',
+    sparkleOutline: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l2.2 6.3L20.5 11l-6.3 2.2L12 19.5l-2.2-6.3L3.5 11l6.3-1.7z"/></svg>',
+    sparkleOutlineDuo:
+      '<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">' +
+        // big star (lower-left)
+        '<path d="M11 5l2 5.5 5.5 1.5-5.5 1.5-2 5.5-2-5.5L3.5 12l5.5-1.5z"/>' +
+        // small star (upper-right)
+        '<path d="M22 3.5l0.9 2.3 2.3 0.7-2.3 0.7-0.9 2.3-0.9-2.3-2.3-0.7 2.3-0.7z" stroke-width="1.4"/>' +
+      '</svg>',
+    phoneFilled: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 15.5c-1.3 0-2.5-.2-3.6-.6-.4-.1-.8 0-1.1.3l-2.2 2.2c-2.9-1.5-5.3-3.8-6.8-6.8l2.2-2.2c.3-.3.4-.7.3-1.1-.4-1.2-.6-2.4-.6-3.6 0-.6-.5-1-1-1H3.5C2.9 2.7 2.5 3.1 2.5 3.7 2.5 13.6 10.4 21.5 20.3 21.5c.6 0 1-.5 1-1V17c0-.6-.5-1-1-1z"/></svg>',
     clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
     arrowR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
-    lock2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+    lock2: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="11" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><line x1="12" y1="15" x2="12" y2="18.5"/></svg>',
     phoneLockIllu:
       '<svg viewBox="0 0 220 200" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
         '<circle cx="115" cy="100" r="78" fill="#eef2fb"/>' +
@@ -214,18 +336,17 @@
         '<rect x="84" y="36" width="72" height="144" rx="9" fill="#f7f9fd"/>' +
         '<rect x="105" y="42" width="30" height="6.5" rx="3.25" fill="#1e3a8a"/>' +
         '<rect x="106" y="180" width="28" height="2.6" rx="1.3" fill="#1e3a8a" opacity=".25"/>' +
-        // Speech bubble — shorter so lock+stars sit on one line
-        '<rect x="98" y="72" width="104" height="44" rx="10" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
-        '<path d="M112 116 L106 130 L122 116 Z" fill="#fff" stroke="#dde4f0" stroke-width="1.2"/>' +
-        '<line x1="113" y1="116" x2="121" y2="116" stroke="#fff" stroke-width="2.5"/>' +
-        // Lock (centered vertically at y=94 inside the bubble)
+        // Speech bubble — filled with brand blue (extended width for star padding)
+        '<rect x="88" y="72" width="124" height="44" rx="10" fill="#3e5da4"/>' +
+        '<path d="M112 116 L106 130 L122 116 Z" fill="#3e5da4"/>' +
+        // Lock (white, keyhole shows through to bubble color)
         '<g transform="translate(116 94)">' +
-          '<path d="M-4 0 V-3.5 A4 4 0 0 1 4 -3.5 V0" fill="none" stroke="#1e3a8a" stroke-width="1.8"/>' +
-          '<rect x="-5.5" y="0" width="11" height="9" rx="1.3" fill="#1e3a8a"/>' +
-          '<circle cx="0" cy="4.5" r="1" fill="#fff"/>' +
+          '<path d="M-4 0 V-3.5 A4 4 0 0 1 4 -3.5 V0" fill="none" stroke="#fff" stroke-width="1.8"/>' +
+          '<rect x="-5.5" y="0" width="11" height="9" rx="1.3" fill="#fff"/>' +
+          '<circle cx="0" cy="4.5" r="1" fill="#3e5da4"/>' +
         '</g>' +
-        // 5 stars to the right of the lock, same baseline
-        '<g fill="#1e3a8a">' +
+        // 5 stars to the right of the lock, white
+        '<g fill="#fff">' +
           '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(138 94)"/>' +
           '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(152 94)"/>' +
           '<polygon points="0,-5 1.5,-1.5 5,-1.5 2.2,0.8 3.2,4.5 0,2.2 -3.2,4.5 -2.2,0.8 -5,-1.5 -1.5,-1.5" transform="translate(166 94)"/>' +
@@ -453,10 +574,10 @@
                 <span class="lof-svg lof-shield">${ICONS.shieldOrange}</span>
                 <strong>Your Privacy Matters</strong>
               </div>
-              <ul>
-                <li>No spam. No pressure.</li>
-                <li>Opt out anytime.</li>
-                <li>Your information is never sold to third parties like the national real estate portals.</li>
+              <ul class="lof-priv-list">
+                <li><span class="lof-priv-check">${ICONS.checkMark}</span>No spam. No pressure.</li>
+                <li><span class="lof-priv-check">${ICONS.checkMark}</span>Opt out anytime.</li>
+                <li><span class="lof-priv-check">${ICONS.checkMark}</span>Your information is never sold to third parties like the national real estate portals.</li>
               </ul>
             </div>
           </div>
@@ -564,7 +685,9 @@
       <div class="lof-backdrop"></div>
       <div class="lof-card lof-otp-card">
         <div class="lof-otp-hero">
+          <span class="lof-fadeline-l"></span>
           <span class="lof-shield-house">${ICONS.shieldHouse}</span>
+          <span class="lof-fadeline-r"></span>
         </div>
 
         <h2 class="lof-otp-title">
@@ -575,7 +698,7 @@
         <p class="lof-otp-sub">We just texted a 6-digit code to:</p>
 
         <div class="lof-phone-pill">
-          <span class="lof-svg lof-pill-ic">${ICONS.phone}</span>
+          <span class="lof-pill-ic-wrap"><span class="lof-svg lof-pill-ic">${ICONS.phoneFilled}</span></span>
           <span id="lof-phone-display">${formatPhonePretty(phone)}</span>
         </div>
         <p class="lof-wrong">
@@ -583,7 +706,7 @@
         </p>
 
         <div class="lof-info-box">
-          <span class="lof-svg lof-info-ic">${ICONS.sparkle}</span>
+          <span class="lof-info-ic-wrap"><span class="lof-svg lof-info-ic">${ICONS.sparkleOutlineDuo}</span></span>
           <p>Search homes with <b>advanced filters</b> and discover <b>opportunities</b> not found on major portals.</p>
         </div>
 
@@ -857,9 +980,11 @@
     closeLoftyRegister();   // safety net
 
     const onHome = isHomePage();
-    const searchBtnHTML = onHome
-      ? '<span>Start Searching Homes</span><small>Advanced Home Search Access Unlocked</small>'
-      : '<span>Continue Browsing</span><small>Account unlocked &mdash; keep exploring this page</small>';
+    const searchBtnHTML =
+      '<span class="lof-btn-row1"><span class="lof-svg lof-btn-house">' + ICONS.houseWide + '</span>' +
+        '<span>Start Searching Homes</span></span>' +
+      '<small class="lof-btn-row2"><span class="lof-svg">' + ICONS.lock2 + '</span>' +
+        'Advanced Search Access Unlocked</small>';
 
     const overlay = document.createElement('div');
     overlay.className = 'lof-overlay';
@@ -904,32 +1029,35 @@
         </div>
 
         <!-- Primary CTA -->
-        <button id="lof-search" class="lof-btn-primary lof-btn-hero">
-          <span class="lof-svg">${ICONS.house}</span>
-          <span class="lof-btn-stack">${searchBtnHTML}</span>
-        </button>
+        <div class="lof-cta-wrap">
+          <button id="lof-search" class="lof-btn-primary lof-btn-hero lof-btn-fit">
+            <span class="lof-btn-stack">${searchBtnHTML}</span>
+          </button>
+        </div>
 
         <!-- Off-market section -->
         <div class="lof-offmkt">
           <div class="lof-offmkt-content">
             <div class="lof-offmkt-head">
               <span class="lof-svg lof-offmkt-ic">${ICONS.houseLock}</span>
-              <h3>Want Access to Homes That <span class="lof-stk">Never</span> Hit Zillow?</h3>
+              <h3>Want Access to Homes<br>That <span class="lof-stk">Never</span> Hit Zillow?</h3>
             </div>
-            <p>Our local team can help you uncover opportunities you won't find on the big real estate portals.</p>
+            <p>Our local team can help uncover opportunities you won't find on the big real estate portals.</p>
             <div class="lof-offmkt-grid">
-              <div>${ICONS.checkSm}<span>Off-market homes</span></div>
-              <div>${ICONS.checkSm}<span>Private seller opportunities</span></div>
-              <div>${ICONS.checkSm}<span>Pre-market opportunities</span></div>
-              <div>${ICONS.checkSm}<span>Coming soon listings</span></div>
-              <div>${ICONS.checkSm}<span>Estate sales</span></div>
-              <div>${ICONS.checkSm}<span>Investor opportunities</span></div>
+              <div>${ICONS.checkSmOutline}<span>Off-market homes</span></div>
+              <div>${ICONS.checkSmOutline}<span>Private seller opportunities</span></div>
+              <div>${ICONS.checkSmOutline}<span>Pre-market opportunities</span></div>
+              <div>${ICONS.checkSmOutline}<span>Coming soon listings</span></div>
+              <div>${ICONS.checkSmOutline}<span>Estate sales</span></div>
+              <div>${ICONS.checkSmOutline}<span>Investment opportunities</span></div>
             </div>
             <button id="lof-offmkt-btn" class="lof-btn-orange">
-              <span class="lof-svg">${ICONS.key}</span>
               <span class="lof-btn-stack">
-                <span>Find Off-Market Homes</span>
-                <small>Let our local experts find opportunities for you</small>
+                <span class="lof-orange-row1">
+                  <span class="lof-svg lof-btn-people">${ICONS.people}</span>
+                  <span>Find Off-Market Homes</span>
+                </span>
+                <small class="lof-orange-row2">Let our local experts find opportunities for you</small>
               </span>
             </button>
           </div>
@@ -938,46 +1066,39 @@
 
         <!-- Local. Proactive. Connected. -->
         <div class="lof-lpc">
-          <div class="lof-lpc-intro">
-            <span class="lof-lpc-shield">${ICONS.shieldCheck}</span>
+          <div class="lof-lpc-col lof-lpc-intro">
+            <span class="lof-lpc-shield">${ICONS.shieldCheckOutline}</span>
             <div>
               <h4>Local. Proactive. Connected.</h4>
-              <p>We work behind the scenes to find opportunities others don't even know about.</p>
+              <p>We work behind the scenes to<br>find opportunities others don't<br>even know about.</p>
             </div>
           </div>
-          <div class="lof-lpc-feats">
-            <div class="lof-lpc-feat">
-              <span class="lof-lpc-ic">${ICONS.people}</span>
-              <strong>Local Experts</strong>
-              <span class="lof-lpc-sub">Who Know the Market</span>
-            </div>
-            <div class="lof-lpc-feat">
-              <span class="lof-lpc-ic">${ICONS.handshake}</span>
-              <strong>Strong Agent</strong>
-              <span class="lof-lpc-sub">Relationships</span>
-            </div>
-            <div class="lof-lpc-feat">
-              <span class="lof-lpc-ic">${ICONS.house}</span>
-              <strong>Access You</strong>
-              <span class="lof-lpc-sub">Won't Find Online</span>
-            </div>
+          <div class="lof-lpc-col lof-lpc-feat">
+            <span class="lof-lpc-ic">${ICONS.people}</span>
+            <span class="lof-lpc-line">Local Experts</span>
+            <span class="lof-lpc-line">Who Know</span>
+            <span class="lof-lpc-line">the Market</span>
+          </div>
+          <div class="lof-lpc-col lof-lpc-feat">
+            <span class="lof-lpc-ic">${ICONS.handshake}</span>
+            <span class="lof-lpc-line">Strong Agent</span>
+            <span class="lof-lpc-line">Relationships</span>
+          </div>
+          <div class="lof-lpc-col lof-lpc-feat">
+            <span class="lof-lpc-ic">${ICONS.house}</span>
+            <span class="lof-lpc-line">Access You</span>
+            <span class="lof-lpc-line">Won't Find Online</span>
           </div>
         </div>
 
-        <p class="lof-footnote">Your information is secure and will never be shared.</p>
+        <p class="lof-footnote"><span class="lof-svg lof-footnote-ic">${ICONS.lock2}</span>Your information is secure and will never be shared.</p>
       </div>
     `;
     document.body.appendChild(overlay);
     document.documentElement.style.overflow = 'hidden';
 
     overlay.querySelector('#lof-search').onclick = function () {
-      if (onHome) {
-        window.location.href = SEARCH_URL;
-      } else {
-        // On a sub-page (e.g. property detail) — just dismiss so the user
-        // can keep doing what they were doing.
-        closeOverlay(overlay);
-      }
+      window.location.href = SEARCH_URL;
     };
     overlay.querySelector('#lof-offmkt-btn').onclick = function () {
       window.location.href = '/contact';
@@ -1199,11 +1320,15 @@
     .lof-btn-block { margin-top: 8px; }
 
     /* ===== Phone modal ===== */
-    .lof-phone-card { width: 92%; max-width: 920px; padding: 0; overflow: hidden; }
-    .lof-phone-grid { display: grid; grid-template-columns: 1.15fr 1fr; }
-    .lof-phone-left { padding: 36px 32px 24px; background: #fff; }
+    .lof-phone-card {
+      width: 92%; max-width: 780px; padding: 0;
+      overflow-x: hidden; overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .lof-phone-grid { display: grid; grid-template-columns: 1fr 1fr; }
+    .lof-phone-left { padding: 36px 28px 24px; background: #fff; }
     .lof-phone-right {
-      padding: 36px 32px 24px;
+      padding: 36px 28px 24px;
       background: linear-gradient(180deg, #f7faff 0%, #ffffff 100%);
       border-left: 1px solid #eef2f9;
     }
@@ -1214,12 +1339,12 @@
     }
     .lof-benefits li + li { border-top: 1px solid #eef2f9; }
     .lof-bicon {
-      width: 38px; height: 38px; flex-shrink: 0;
+      width: 42px; height: 42px; flex-shrink: 0;
       border-radius: 50%; background: #e8eefc;
       display: flex; align-items: center; justify-content: center;
       color: #2b5fdb;
     }
-    .lof-bicon svg { width: 19px; height: 19px; }
+    .lof-bicon svg { width: 24px; height: 24px; }
     .lof-benefits h4 { margin: 2px 0 4px; font-size: 15px; font-weight: 700; color: #0f1b3d; }
     .lof-benefits p { margin: 0; font-size: 13px; color: #5a6478; line-height: 1.5; }
     .lof-phone-illu {
@@ -1307,38 +1432,44 @@
     .lof-shield { width: 34px; height: 34px; flex-shrink: 0; }
     .lof-shield svg { width: 100%; height: 100%; }
     .lof-privacy-head strong { font-size: 15px; color: #b45309; font-weight: 700; }
-    /* Indent bullets so the bullet markers line up with "Your Privacy Matters" */
-    .lof-privacy-box ul {
-      list-style: disc;
-      margin: 4px 0 0 46px;
+    /* Bullets use inline check icons; ul starts where "Your Privacy Matters" begins */
+    .lof-privacy-box .lof-priv-list {
+      list-style: none;
+      margin: 6px 0 0 46px;
       padding: 0;
       font-size: 12.5px; color: #7c5418;
     }
-    .lof-privacy-box li { padding: 2px 0; line-height: 1.45; }
-    .lof-privacy-box li::marker { color: #f59e0b; }
+    .lof-privacy-box .lof-priv-list li {
+      display: flex; align-items: flex-start; gap: 8px;
+      padding: 3px 0; line-height: 1.45;
+    }
+    .lof-priv-check {
+      display: inline-flex; flex-shrink: 0; margin-top: 1px;
+    }
+    .lof-priv-check svg { width: 14px; height: 14px; display: block; }
 
     .lof-bottom-bar {
       grid-column: 1 / -1;
       display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 14px 24px;
+      padding: 16px 24px;
       background: #e8eefc;
-      color: #14213d;
+      color: #3e5da4;
       flex-wrap: wrap;
     }
     .lof-bar-left { display: flex; align-items: center; gap: 12px; flex: 1 1 auto; min-width: 0; }
-    .lof-bar-chat { width: 32px; height: 32px; flex-shrink: 0; }
+    .lof-bar-chat { width: 34px; height: 34px; flex-shrink: 0; }
     .lof-bar-chat svg { width: 100%; height: 100%; }
-    .lof-bar-text { font-size: 14px; color: #14213d; line-height: 1.3; }
+    .lof-bar-text { font-size: 16px; color: #3e5da4; line-height: 1.35; }
     .lof-bar-text strong { font-weight: 700; }
     .lof-bar-phone {
       display: inline-flex; align-items: center; gap: 8px;
-      background: #fff; color: #14213d; text-decoration: none;
-      padding: 10px 16px; border: 2px solid #14213d;
+      background: #fff; color: #3e5da4; text-decoration: none;
+      padding: 10px 16px; border: 2px solid #3e5da4;
       border-radius: 8px; font-weight: 700; font-size: 14px;
       transition: background .15s;
     }
-    .lof-bar-phone .lof-svg { width: 16px; height: 16px; color: #14213d; }
-    .lof-bar-phone:hover { background: #f5f7fb; }
+    .lof-bar-phone .lof-svg { width: 16px; height: 16px; color: #3e5da4; }
+    .lof-bar-phone:hover { background: #f0f3fb; }
 
     /* Phone modal grid → bottom bar; wrap into the same flow */
     .lof-phone-card > .lof-phone-grid { }
@@ -1354,33 +1485,79 @@
       width: 92%; max-width: 440px; padding: 28px 28px 22px;
       text-align: center; position: relative;
     }
-    .lof-otp-hero { display: flex; justify-content: center; margin: 4px 0 14px; position: relative; }
-    .lof-shield-house { width: 48px; height: 48px; display: inline-flex; align-items: center; justify-content: center; }
+    .lof-otp-hero { display: flex; justify-content: center; margin: 4px 0 18px; position: relative; }
+    .lof-shield-house { width: 88px; height: 88px; display: inline-flex; align-items: center; justify-content: center; color: #3e5da4; }
     .lof-shield-house svg { width: 100%; height: 100%; }
+
+    /* Side decoration: small ringed circles with a fading line just outside. */
     .lof-otp-hero:before, .lof-otp-hero:after {
-      content: ''; position: absolute; top: 50%; width: 8px; height: 8px;
-      border-radius: 50%; border: 1.5px solid #c9d4f0; transform: translateY(-50%);
+      content: ''; position: absolute; top: 50%; width: 7px; height: 7px;
+      border-radius: 50%; border: 2.4px solid #3e5da4; background: #fff;
+      transform: translateY(-50%);
     }
-    .lof-otp-hero:before { left: calc(50% - 50px); }
-    .lof-otp-hero:after { right: calc(50% - 50px); }
+    .lof-otp-hero:before { left: calc(50% - 58px); }
+    .lof-otp-hero:after  { right: calc(50% - 58px); }
+
+    .lof-otp-hero .lof-fadeline-l,
+    .lof-otp-hero .lof-fadeline-r {
+      position: absolute; top: 50%; height: 1.4px; width: 28px;
+      transform: translateY(-50%); pointer-events: none;
+      border-radius: 1px;
+    }
+    /* Left line: right edge sits 2px to the left of the left dot's left edge.
+       Left dot left edge at 50% - 58px → line right edge at 50% - 60px. */
+    .lof-otp-hero .lof-fadeline-l {
+      right: calc(50% + 60px);
+      background: linear-gradient(to left, #a8b8de 0%, rgba(168,184,222,0) 100%);
+    }
+    /* Right line: mirror — left edge at 50% + 60px. */
+    .lof-otp-hero .lof-fadeline-r {
+      left: calc(50% + 60px);
+      background: linear-gradient(to right, #a8b8de 0%, rgba(168,184,222,0) 100%);
+    }
     .lof-otp-title {
-      font-size: 18px; font-weight: 600; color: #0f1b3d;
-      margin: 0 0 12px; line-height: 1.15; letter-spacing: -0.2px;
+      font-size: 24px; font-weight: 500; color: #0f1b3d;
+      margin: 0 0 12px; line-height: 1.15; letter-spacing: -0.3px;
     }
     .lof-otp-title-em {
-      display: block; font-size: 30px; font-weight: 800; color: #0f1b3d;
-      margin-top: 2px;
+      display: inline-block; position: relative;
+      font-size: 34px; font-weight: 700; color: #0f1b3d;
+      margin-top: 4px; letter-spacing: -0.5px;
+    }
+    /* Tapered blue brush stroke under "cation" — thick at the "c" end, thinner
+       toward the "o" end. Drawn as a filled shape so the thickness can taper. */
+    .lof-otp-title-em::after {
+      content: '';
+      position: absolute; left: 30%; bottom: -6px;
+      width: 29%; height: 12px;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 15' preserveAspectRatio='none'><path d='M3 2 Q50 11 97 3 A1 1 0 0 1 97 5 Q50 13 3 6 A2 2 0 0 0 3 2 Z' fill='%233e5da4'/></svg>");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 100% 100%;
+      pointer-events: none;
     }
     .lof-otp-sub {
       font-size: 13.5px; color: #5a6478; margin: 0 0 12px;
     }
     .lof-phone-pill {
-      display: inline-flex; align-items: center; gap: 8px;
+      display: inline-flex; align-items: center; gap: 10px;
       background: #fff; border: 1px solid #d8dfeb;
-      border-radius: 999px; padding: 8px 18px;
-      font-size: 15px; font-weight: 600; color: #0f1b3d;
+      border-radius: 999px; padding: 6px 20px 6px 6px;
+      font-size: 17px; font-weight: 700; color: #0f1b3d;
+      letter-spacing: 0.2px;
+      line-height: 1;
     }
-    .lof-pill-ic { width: 16px; height: 16px; color: #2b5fdb; }
+    .lof-phone-pill > #lof-phone-display {
+      display: inline-flex; align-items: center; height: 32px;
+      line-height: 1;
+    }
+    .lof-pill-ic-wrap {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #e8eefc;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .lof-pill-ic { width: 17px; height: 17px; color: #3e5da4; }
     .lof-wrong {
       font-size: 12.5px; color: #5a6478; margin: 8px 0 14px;
     }
@@ -1388,16 +1565,24 @@
       color: #2b5fdb; text-decoration: underline; font-weight: 600; cursor: pointer;
     }
     .lof-info-box {
-      display: flex; align-items: flex-start; gap: 10px;
-      background: #eef3fc; border-radius: 10px;
-      padding: 11px 14px; margin: 0 0 18px;
+      display: flex; flex-direction: row; align-items: center; gap: 12px;
+      background: #f3f6fd;
+      border: 1.5px solid #ccd6ea;
+      border-radius: 10px;
+      padding: 12px 14px; margin: 0 0 18px;
       text-align: left;
     }
-    .lof-info-ic { width: 18px; height: 18px; color: #2b5fdb; flex-shrink: 0; margin-top: 1px; }
-    .lof-info-box p {
-      margin: 0; font-size: 12px; color: #3d4763; line-height: 1.5;
+    .lof-info-ic-wrap {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: #e8eefc;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
     }
-    .lof-info-box b { color: #2b5fdb; font-weight: 700; }
+    .lof-info-ic { width: 26px; height: 26px; color: #3e5da4; }
+    .lof-info-box p {
+      margin: 0; font-size: 12.5px; color: #3d4763; line-height: 1.5;
+    }
+    .lof-info-box b { color: #3e5da4; font-weight: 700; }
 
     .lof-otp-boxes {
       display: flex; gap: 8px; justify-content: center; margin: 0 0 14px;
@@ -1415,11 +1600,11 @@
     }
     .lof-ttl {
       display: inline-flex; align-items: center; gap: 6px;
-      font-size: 12.5px; color: #f97316;
+      font-size: 12.5px; color: #3e5da4;
       margin: 0 0 16px; font-weight: 500;
     }
     .lof-ttl .lof-svg { width: 14px; height: 14px; }
-    .lof-ttl b { color: #f97316; font-weight: 700; }
+    .lof-ttl b { color: #3e5da4; font-weight: 700; }
     .lof-ttl-exp, .lof-ttl-exp b { color: #c33; }
 
     #lof-verify.lof-btn-hero {
@@ -1462,18 +1647,29 @@
     /* ===== Success modal ===== */
     .lof-success-card { width: 92%; max-width: 820px; padding: 40px 38px 28px; }
     .lof-succ-hero { text-align: center; margin-bottom: 22px; }
-    .lof-check { width: 76px; height: 76px; margin: 0 auto 14px; }
+    .lof-check { width: 140px; height: 80px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; }
     .lof-check svg { width: 100%; height: 100%; }
+    .lof-success-card .lof-h2 {
+      font-size: 36px; line-height: 1.15; letter-spacing: -0.5px;
+    }
     .lof-succ-sub {
-      color: #2b5fdb; font-size: 16px; font-weight: 700;
-      margin: 4px 0 10px; letter-spacing: .2px;
+      color: #0f1b3d; font-size: 16px; font-weight: 700;
+      margin: 6px 0 12px; letter-spacing: .2px;
+    }
+    .lof-succ-hero .lof-sub {
+      max-width: 360px; margin: 0 auto; line-height: 1.5;
     }
 
     .lof-feat-row {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
       margin: 0 0 22px;
     }
-    .lof-feat { text-align: center; padding: 4px; }
+    .lof-feat { text-align: center; padding: 4px 12px; position: relative; }
+    .lof-feat + .lof-feat::before {
+      content: ''; position: absolute; left: 0;
+      top: 10%; bottom: 10%; width: 1px;
+      background: #e3e9f4;
+    }
     .lof-feat-ic {
       width: 44px; height: 44px; margin: 0 auto 10px; border-radius: 50%;
       background: #e8eefc; color: #2b5fdb;
@@ -1484,91 +1680,189 @@
     .lof-feat p { margin: 0; font-size: 11.5px; color: #5a6478; line-height: 1.45; }
 
     .lof-btn-hero {
-      padding: 16px 18px; font-size: 16px; gap: 12px;
+      padding: 14px 24px; font-size: 16px; gap: 12px;
       box-shadow: 0 6px 18px rgba(43, 95, 219, 0.30);
     }
-    .lof-btn-hero .lof-svg { width: 22px; height: 22px; }
+    .lof-btn-hero .lof-svg { width: 20px; height: 20px; }
     .lof-btn-stack { display: flex; flex-direction: column; align-items: center; line-height: 1.2; }
     .lof-btn-stack small { font-size: 11px; font-weight: 500; opacity: .85; margin-top: 2px; }
 
+    /* Primary CTA — wider fixed width, centered */
+    .lof-cta-wrap { text-align: center; margin: 0 0 22px; }
+    .lof-btn-fit {
+      width: auto !important; display: inline-flex !important;
+      padding-left: 90px !important; padding-right: 90px !important;
+      min-width: 420px;
+    }
+    .lof-btn-fit .lof-btn-stack { gap: 4px; align-items: stretch; }
+    .lof-btn-row1 {
+      display: inline-flex; align-items: center; gap: 12px;
+      font-size: 19px; font-weight: 700; line-height: 1.2;
+      justify-content: center;
+    }
+    .lof-btn-row1 .lof-svg { width: 22px; height: 22px; flex-shrink: 0; }
+    .lof-btn-row1 .lof-btn-house { width: 30px; height: 24px; transform: translateY(-2px); }
+    .lof-btn-stack small.lof-btn-row2 {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 500; line-height: 1.2;
+      opacity: .9; justify-content: center;
+      margin-top: 0;
+    }
+    .lof-btn-stack small.lof-btn-row2 .lof-svg { width: 14px; height: 14px; flex-shrink: 0; }
+
     /* Off-market */
     .lof-offmkt {
-      margin: 26px 0 22px;
-      display: grid; grid-template-columns: 1.55fr 1fr; gap: 0;
-      background: #fff6ed; border: 1px solid #ffd6b0;
-      border-radius: 14px; overflow: hidden;
+      margin: 26px 0 8px;
+      display: grid; grid-template-columns: 1.35fr 1fr; gap: 0;
+      background: #fffefb;
+      border: 1.5px solid #ffe6c8;
+      border-radius: 20px; overflow: hidden;
+      align-items: stretch;
     }
-    .lof-offmkt-content { padding: 24px 26px; }
-    .lof-offmkt-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
-    .lof-offmkt-ic { width: 34px; height: 34px; color: #f97316; flex-shrink: 0; margin-top: 2px; }
-    .lof-offmkt h3 { font-size: 18px; font-weight: 800; color: #0f1b3d; margin: 0; line-height: 1.25; }
-    .lof-stk { color: #f97316; }
-    .lof-offmkt p { font-size: 13px; color: #5a6478; line-height: 1.5; margin: 0 0 14px; }
+    .lof-offmkt-content {
+      padding: 26px 28px;
+      display: flex; flex-direction: column;
+    }
+    .lof-offmkt-head { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; }
+    .lof-offmkt-ic { width: 56px; height: 56px; color: #f97316; flex-shrink: 0; }
+    .lof-offmkt-ic svg { width: 100%; height: 100%; }
+    .lof-offmkt h3 {
+      font-size: 23px; font-weight: 700; color: #0f1b3d;
+      margin: 0; line-height: 1.22; letter-spacing: -0.3px;
+    }
+    /* "Never" with hand-drawn orange underline */
+    .lof-stk {
+      color: #f97316; font-weight: 800;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 10' preserveAspectRatio='none'><path d='M2 7 Q15 2 30 5 T58 6' stroke='%23f97316' stroke-width='2.4' fill='none' stroke-linecap='round'/></svg>");
+      background-repeat: no-repeat;
+      background-position: bottom center;
+      background-size: 100% 7px;
+      padding-bottom: 5px;
+    }
+    .lof-offmkt p {
+      font-size: 13.5px; color: #1f2a44; line-height: 1.55;
+      margin: 0 0 16px;
+    }
     .lof-offmkt-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin: 0 0 16px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px;
+      margin: 0 0 20px;
     }
     .lof-offmkt-grid > div {
       display: flex; align-items: center; gap: 8px;
-      font-size: 12.5px; color: #1f2a44;
+      font-size: 13px; color: #1f2a44; font-weight: 500;
       white-space: nowrap;
     }
-    .lof-offmkt-grid svg { width: 14px; height: 14px; flex-shrink: 0; }
+    .lof-offmkt-grid svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* CTA: orange gradient, white people icon, two-line label */
     .lof-btn-orange {
-      width: 100%; padding: 13px 16px; border: 0; border-radius: 10px;
-      background: #f97316; color: #fff; font-size: 14px; font-weight: 700;
-      cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-      transition: background .2s;
+      width: 100%; padding: 16px 18px; border: 0; border-radius: 12px;
+      background: linear-gradient(180deg, #fb923c 0%, #f57316 100%);
+      color: #fff; font-size: 15px; font-weight: 700;
+      cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+      transition: filter .2s;
+      box-shadow: 0 4px 12px rgba(249, 115, 22, 0.22);
+      margin-top: auto;
     }
-    .lof-btn-orange:hover { background: #ea6a0c; }
-    .lof-btn-orange .lof-svg { width: 18px; height: 18px; color: #fcce17; }
+    .lof-btn-orange:hover { filter: brightness(.96); }
+    .lof-btn-orange .lof-svg { width: 20px; height: 20px; color: #fff; }
+    .lof-btn-orange .lof-btn-stack { align-items: center; line-height: 1.25; }
+    .lof-btn-orange .lof-orange-row1 {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-size: 15px; font-weight: 700;
+    }
+    .lof-btn-orange .lof-orange-row1 .lof-btn-people { width: 22px; height: 22px; }
+    .lof-btn-orange .lof-orange-row2 {
+      font-size: 12px; font-weight: 500; opacity: .95; margin-top: 2px;
+    }
+
+    /* Image card on the right — softly rounded, breathing room around it */
     .lof-offmkt-img {
-      min-height: 280px;
+      margin: 18px 18px 18px 0;
+      border-radius: 14px;
+      min-height: 260px;
       background-size: cover; background-position: center; background-repeat: no-repeat;
     }
 
-    /* Local. Proactive. Connected. */
+    /* Local. Proactive. Connected. — 4-column info bar, white bg, blue accents */
     .lof-lpc {
-      background: #f5f7fb; border-radius: 12px; padding: 20px 24px;
+      background: #fff; border-radius: 12px; padding: 22px 0;
       margin: 0 0 16px;
-      display: grid; grid-template-columns: 1.3fr 2fr; gap: 20px;
+      display: grid;
+      grid-template-columns: 2.2fr 1fr 1fr 1fr;
+      gap: 0;
       align-items: center;
     }
+    .lof-lpc-col { padding: 0 22px; }
+    .lof-lpc-col + .lof-lpc-col { border-left: 1px solid #e3e9f4; }
+
     .lof-lpc-intro {
-      display: flex; align-items: center; gap: 14px;
+      display: flex; align-items: flex-start; gap: 14px;
     }
-    .lof-lpc-shield { width: 42px; height: 42px; flex-shrink: 0; }
+    .lof-lpc-shield {
+      width: 44px; height: 44px; flex-shrink: 0; color: #3e5da4;
+      display: inline-flex; align-items: flex-start; justify-content: center;
+      /* Apex sits at y=2 in the 40-unit viewBox (≈ 2.2px below container top).
+         Push the container down so the apex lines up with the headline top. */
+      margin-top: 2px;
+    }
     .lof-lpc-shield svg { width: 100%; height: 100%; }
-    .lof-lpc h4 { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: #0f1b3d; }
-    .lof-lpc-intro p { margin: 0; font-size: 12px; color: #5a6478; line-height: 1.45; }
-    .lof-lpc-feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .lof-lpc h4 {
+      margin: 0 0 5px; font-size: 16px; font-weight: 700;
+      color: #3e5da4; letter-spacing: -0.2px; line-height: 1.2;
+    }
+    .lof-lpc-intro p {
+      margin: 0; font-size: 12.5px; color: #3e5da4;
+      line-height: 1.5; font-weight: 400;
+    }
+
     .lof-lpc-feat {
       display: flex; flex-direction: column; align-items: center;
-      text-align: center; font-size: 12px; color: #1f2a44; gap: 2px;
+      text-align: center;
+      color: #3e5da4; font-size: 12.5px; font-weight: 500;
+      line-height: 1.3;
     }
     .lof-lpc-ic {
-      width: 36px; height: 36px; margin-bottom: 6px;
-      border-radius: 50%; background: #e8eefc; color: #2b5fdb;
-      display: flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px;
+      color: #3e5da4;
+      margin-bottom: 10px;
+      display: inline-flex; align-items: center; justify-content: center;
+      background: none;
     }
-    .lof-lpc-ic svg { width: 18px; height: 18px; }
-    .lof-lpc-feat strong { font-weight: 700; }
-    .lof-lpc-sub { font-size: 11.5px; color: #5a6478; }
+    .lof-lpc-ic svg { width: 100%; height: 100%; }
+    .lof-lpc-line { display: block; }
 
     .lof-footnote {
+      display: inline-flex; align-items: center; gap: 6px;
       text-align: center; font-size: 11px; color: #8b93a7;
       margin: 12px 0 0;
     }
+    .lof-success-card .lof-footnote {
+      display: flex; justify-content: center;
+    }
+    .lof-footnote-ic { width: 12px; height: 12px; flex-shrink: 0; color: currentColor; }
+    .lof-footnote-ic svg { width: 100%; height: 100%; }
 
     @media (max-width: 820px) {
       .lof-success-card { padding: 28px 22px 22px; }
       .lof-feat-row { grid-template-columns: repeat(2, 1fr); }
+      .lof-feat + .lof-feat::before { display: none; }
+      .lof-feat:nth-child(2)::before, .lof-feat:nth-child(4)::before {
+        content: ''; position: absolute; left: 0;
+        top: 10%; bottom: 10%; width: 1px;
+        background: #e3e9f4; display: block;
+      }
       .lof-offmkt { grid-template-columns: 1fr; }
-      .lof-offmkt-img { min-height: 180px; order: 2; }
+      .lof-offmkt-img { min-height: 180px; order: 2; margin: 0 18px 18px; }
       .lof-offmkt-grid { grid-template-columns: 1fr; }
       .lof-offmkt-grid > div { white-space: normal; }
-      .lof-lpc { grid-template-columns: 1fr; gap: 14px; text-align: center; }
+      .lof-lpc { grid-template-columns: 1fr; gap: 0; text-align: center; padding: 18px 0; }
+      .lof-lpc-col + .lof-lpc-col { border-left: 0; border-top: 1px solid #e3e9f4; padding-top: 16px; margin-top: 4px; }
       .lof-lpc-intro { flex-direction: column; gap: 8px; }
       .lof-h2 { font-size: 22px; }
+      .lof-success-card .lof-h2 { font-size: 26px; }
+      .lof-check { width: 120px; height: 70px; }
+      .lof-succ-hero .lof-sub { max-width: 300px; }
     }
   `;
   document.head.appendChild(style);

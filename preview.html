@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>OTP Modals — Local Preview</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: #f7faff;
+      color: #1f2a44;
+      padding: 40px 20px;
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    h1 { color: #3e5da4; margin: 0 0 8px; font-size: 24px; }
+    p  { color: #5a6478; margin: 0 0 24px; line-height: 1.55; }
+    .grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;
+      margin-bottom: 24px;
+    }
+    .grid button {
+      padding: 14px 18px; font-size: 15px; font-weight: 700;
+      background: #2b5fdb; color: #fff; border: 0; border-radius: 10px;
+      cursor: pointer; transition: background .15s;
+    }
+    .grid button:hover { background: #1f4cb8; }
+    .grid button.alt { background: #fff; color: #2b5fdb; border: 1px solid #2b5fdb; }
+    .grid button.alt:hover { background: #f0f5ff; }
+    .grid button.danger { background: #fff; color: #c33; border: 1px solid #c33; }
+    .grid button.danger:hover { background: #fff5f5; }
+    code {
+      display: block; background: #14213d; color: #e2e8f0;
+      padding: 14px 16px; border-radius: 8px; font-size: 13px;
+      line-height: 1.5; overflow-x: auto;
+    }
+    .note { font-size: 13px; color: #8b93a7; margin-top: 18px; }
+  </style>
+</head>
+<body>
+  <h1>OTP Modals — Local Preview</h1>
+  <p>
+    Offline preview of every modal. All backend calls are stubbed — no SMS
+    is sent, and any 6-digit code on the OTP modal is accepted. Open this file
+    directly from your filesystem (<code>file://…/preview.html</code>) to avoid
+    any network usage.
+  </p>
+
+  <div class="grid">
+    <button onclick="window.__lofPreview.phone()">1 · Phone number modal</button>
+    <button onclick="window.__lofPreview.otp()">2 · OTP code modal</button>
+    <button onclick="window.__lofPreview.edit()" class="alt">2b · "Edit phone" submodal</button>
+    <button onclick="window.__lofPreview.success()">3 · Success modal</button>
+    <button onclick="window.__lofPreview.off()" class="danger">Close / Exit preview</button>
+    <button onclick="location.reload()" class="alt">Reload</button>
+  </div>
+
+  <p class="note">
+    Tip: keep DevTools open. Anywhere the script would have hit the Railway backend
+    you'll see <code>[lof-preview] would POST …</code> in the console.
+  </p>
+
+  <!-- Block external scripts so the file loads truly offline. -->
+  <script>
+    // Stub fetch so even if something tries to phone home (e.g. the Leadsy tag),
+    // it resolves locally without network.
+    const realFetch = window.fetch;
+    window.fetch = function (url) {
+      console.log('[preview] blocked fetch:', url);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: function () { return Promise.resolve({ status: 'approved' }); },
+        text: function () { return Promise.resolve(''); }
+      });
+    };
+  </script>
+
+  <!-- Load the actual otp.js from the public folder next to this file. -->
+  <script src="public/otp.js"></script>
+</body>
+</html>
