@@ -1083,7 +1083,7 @@
     document.documentElement.style.overflow = 'hidden';
 
     overlay.querySelector('#lof-search').onclick = function () {
-      window.location.href = SEARCH_URL;
+      closeOverlay(overlay);
     };
     overlay.querySelector('#lof-offmkt-btn').onclick = function () {
       window.location.href = '/contact';
