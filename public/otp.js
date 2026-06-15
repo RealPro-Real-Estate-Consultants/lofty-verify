@@ -368,12 +368,10 @@
     if (!phoneInput || phoneInput.dataset.otpReady === '1') return;
     phoneInput.dataset.otpReady = '1';
 
-    // Lofty has the phone field set to optional, so we only need to hide it.
-    // The real phone is written in via setReactiveValue() right before submit.
     const container = phoneInput.closest('.v-input');
     if (container) container.style.display = 'none';
 
-    enhanceRegisterForm();
+    // enhanceRegisterForm();
   }
 
   // Injects rich content (bullet lists, serving area, privacy note) and
@@ -1134,15 +1132,14 @@
   // ==========================================================================
   const style = document.createElement('style');
   style.textContent = `
-    /* ===== Lofty register popup enhancements ===== */
-    /* Inherit the site's font (var(--font-normal) / --font-bold) everywhere. */
+    /* ===== Lofty register popup enhancements (DISABLED — uncomment to re-enable) =====
+
     .pop-sign-log.register .lof-form-enrich,
     .pop-sign-log.register .lof-submit-note {
       font-family: inherit;
       color: #37465a;
     }
 
-    /* Title — brand blue, larger on desktop */
     .pop-sign-log.register hgroup h2,
     .pop-sign-log.register hgroup h2 p {
       font-size: 25px !important;
@@ -1155,7 +1152,6 @@
       text-align: center;
     }
 
-    /* Description — match body text */
     .pop-sign-log.register hgroup h3,
     .pop-sign-log.register hgroup h3 p {
       font-size: 13.5px !important;
@@ -1166,7 +1162,6 @@
       margin: 0 0 6px !important;
     }
 
-    /* Injected rich content */
     .pop-sign-log.register .lof-form-enrich { margin: 6px 0 14px; }
     .pop-sign-log.register .lof-form-enrich h4 {
       color: #3e5da4; font-size: 14.5px; font-weight: 700;
@@ -1198,7 +1193,6 @@
       border: 0; border-top: 1px solid #e5e8ee; margin: 16px 0 12px;
     }
 
-    /* Compact form fields */
     .pop-sign-log.register .v-input { margin-bottom: 8px; }
     .pop-sign-log.register .v-input .input-container {
       display: flex; flex-direction: column; gap: 3px;
@@ -1230,7 +1224,6 @@
       outline: none;
     }
 
-    /* Submit button — dark navy */
     .pop-sign-log.register .submit {
       background: #14213d !important;
       border-radius: 8px !important;
@@ -1263,6 +1256,8 @@
         font-size: 20px !important;
       }
     }
+
+    ===== end disabled block ===== */
 
     /* ===== Shared primitives ===== */
     .lof-overlay {
