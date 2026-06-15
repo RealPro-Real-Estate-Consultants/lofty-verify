@@ -60,7 +60,6 @@
 
   // ---- State ---------------------------------------------------------------
   let verified = false;
-  let bypassRegister = false;
   const hooked = new WeakSet();
 
   // ---- Preview mode --------------------------------------------------------
@@ -480,7 +479,7 @@
   // ==========================================================================
   //  Modal 1: branded phone-number capture screen
   // ==========================================================================
-  function buildPhoneModal(submitBtn) {
+  function buildPhoneModal() {
     const overlay = document.createElement('div');
     overlay.className = 'lof-overlay';
     overlay.id = 'lof-phone-modal';
@@ -649,20 +648,8 @@
       sendBtn.disabled = true;
       sendBtn.innerHTML = 'Sending...';
 
-      // Lofty's phone field truncates to 10 digits → write the local part only.
-      // Twilio Verify requires E.164 (1+10), passed as `parsed.e164`.
-      const loftyPhone = document.querySelector('.pop-sign-log.register input[name="phone"]');
-      if (loftyPhone) setReactiveValue(loftyPhone, parsed.local);
-
       closeOverlay(overlay);
-
-      bypassRegister = true;
-      setTimeout(function () {
-        submitBtn.click();
-        setTimeout(closeLoftyRegister, 400);
-        setTimeout(function () { fireOTP(parsed.e164); }, 600);
-        setTimeout(function () { bypassRegister = false; }, 1500);
-      }, 50);
+      fireOTP(parsed.e164);
     };
 
     phoneEl.addEventListener('keydown', function (e) {
@@ -1114,13 +1101,16 @@
       .forEach(function (btn) {
         if (hooked.has(btn)) return;
         hooked.add(btn);
-        btn.addEventListener('click', function (e) {
-          if (bypassRegister) return;
+        btn.addEventListener('click', function () {
           const wrap = btn.closest('.submit');
           if (wrap && wrap.classList.contains('disabled')) return;
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          buildPhoneModal(btn);
+          // Let Lofty's submit fire naturally so the lead is created immediately.
+          // Open our phone modal after a short delay for the OTP step.
+          setTimeout(function () {
+            if (document.getElementById('lof-phone-modal')) return;
+            closeLoftyRegister();
+            buildPhoneModal();
+          }, 400);
         }, true);
       });
   }
