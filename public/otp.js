@@ -69,11 +69,11 @@
   // and gets back a response containing the new lead's ID. We intercept network
   // responses during a short window after the form submit and look for that ID.
   //
-  // Lofty uses both fetch() and XMLHttpRequest (axios falls back to XHR), so we
-  // patch BOTH. During the watch window we also DUMP every JSON response body to
-  // the console so the exact field path of the lead ID can be confirmed on a
-  // live test. capturedLeadId then rides along with the phone number so Zapier's
-  // "Update Lead" can target the record directly — no email lookup needed.
+  // Lofty uses XMLHttpRequest (axios falls back to XHR) — and sometimes fetch() —
+  // so we patch BOTH. The relevant call is POST /api-site/leadRegister, whose
+  // response carries the new lead at data.user.id. capturedLeadId then rides
+  // along with the phone number so Zapier's "Update Lead" can target the record
+  // directly — no email lookup needed.
   let watchingForLeadId = false;
 
   // Recursively scan a parsed JSON object for the first plausible lead-ID field.
@@ -86,7 +86,6 @@
       const here = path ? path + '.' + key : key;
       const isIdKey = /^(lead_?id|id|contactId|contact_id|recordId|record_id)$/i.test(key);
       if (isIdKey && (typeof val === 'string' || typeof val === 'number') && String(val).length) {
-        console.log('[otp] candidate id field:', here, '=', val);
         if (!found) found = { path: here, value: String(val) };
       } else if (val && typeof val === 'object') {
         found = findLeadId(val, here, found);
@@ -100,13 +99,19 @@
     let data;
     try { data = JSON.parse(bodyText); } catch (e) { return; }
     if (!data || typeof data !== 'object') return;
-    // Diagnostic dump — trimmed so the console stays readable.
-    const dump = bodyText.length > 2000 ? bodyText.slice(0, 2000) + '…(truncated)' : bodyText;
-    console.log('[otp] ' + method + ' ' + url + ' →', dump);
-    const hit = findLeadId(data, '', null);
-    if (hit) {
-      capturedLeadId = hit.value;
-      console.log('[otp] captured Lofty lead ID:', capturedLeadId, '(from', hit.path + ')');
+    // Lofty's POST /api-site/leadRegister returns the new lead under
+    // data.user.id (confirmed live). Prefer that exact path; fall back to a
+    // recursive id search only if Lofty ever changes the response shape.
+    let id = data.data && data.data.user && data.data.user.id;
+    let path = 'data.user.id';
+    if (!id) {
+      const hit = findLeadId(data, '', null);
+      if (hit) { id = hit.value; path = hit.path; }
+    }
+    if (id) {
+      capturedLeadId = String(id);
+      watchingForLeadId = false;
+      console.log('[otp] captured Lofty lead ID:', capturedLeadId, '(from ' + path + ')');
     }
   }
 
