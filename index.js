@@ -49,8 +49,10 @@ app.post('/send-verification', async (req, res) => {
 });
 
 app.post('/update-lead-phone', async (req, res) => {
+  console.log(`update-lead-phone received — leadId: ${req.body.leadId || '(none)'}, email: ${req.body.email || '(none)'}, phone: +${req.body.phoneNumber}`);
   if (!process.env.ZAPIER_UPDATE_PHONE_URL || process.env.ZAPIER_UPDATE_PHONE_URL.includes('REPLACE_ME')) {
-    return res.sendStatus(200); // silently skip if not configured
+    console.warn('update-lead-phone SKIPPED — ZAPIER_UPDATE_PHONE_URL is not set in Railway variables');
+    return res.sendStatus(200);
   }
   try {
     await fetch(process.env.ZAPIER_UPDATE_PHONE_URL, {
