@@ -742,11 +742,20 @@
       // Send the Lead ID (preferred) so Zapier can call "Update Lead" directly.
       // Fall back to email in case the ID wasn't captured in time.
       if (capturedLeadId || capturedEmail) {
+        console.log('[otp] POST /update-lead-phone', {
+          leadId: capturedLeadId, email: capturedEmail, phoneNumber: parsed.e164
+        });
         post('/update-lead-phone', {
           leadId: capturedLeadId,
           email: capturedEmail,
           phoneNumber: parsed.e164
-        }).catch(function () {});
+        }).then(function (r) {
+          console.log('[otp] update-lead-phone response status:', r.status);
+        }).catch(function (err) {
+          console.error('[otp] update-lead-phone request FAILED:', err);
+        });
+      } else {
+        console.warn('[otp] no leadId or email captured — phone update NOT sent');
       }
       fireOTP(parsed.e164);
     };
