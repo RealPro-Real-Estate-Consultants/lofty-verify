@@ -48,6 +48,28 @@ app.post('/send-verification', async (req, res) => {
   }
 });
 
+app.post('/update-lead-phone', async (req, res) => {
+  if (!process.env.ZAPIER_UPDATE_PHONE_URL || process.env.ZAPIER_UPDATE_PHONE_URL.includes('REPLACE_ME')) {
+    return res.sendStatus(200); // silently skip if not configured
+  }
+  try {
+    await fetch(process.env.ZAPIER_UPDATE_PHONE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        leadId: req.body.leadId,
+        email: req.body.email,
+        phoneNumber: req.body.phoneNumber
+      })
+    });
+    console.log(`Phone update triggered — leadId: ${req.body.leadId || '(none)'}, email: ${req.body.email}, phone: +${req.body.phoneNumber}`);
+    res.sendStatus(200);
+  } catch (e) {
+    console.error('update-lead-phone error:', e.message);
+    res.sendStatus(500);
+  }
+});
+
 app.post('/verify-otp', async (req, res) => {
   try {
     const check = await client.verify.v2

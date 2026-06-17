@@ -3,7 +3,7 @@
  *
  * Loader (paste once in Lofty Custom Style & Script Script box):
  *   (function(){var s=document.createElement('script');
- *     s.src='https://lofty-verify-production-3aee.up.railway.app/otp.js?v=N';
+ *     s.src='https://lofty-verify-production-3aee.up.railway.app/otp.js?v=N+1';
  *     s.async=true;document.head.appendChild(s)})();
  *
  * Sequence:
@@ -60,7 +60,91 @@
 
   // ---- State ---------------------------------------------------------------
   let verified = false;
+  let capturedEmail = '';   // set at Lofty submit time; used to link the phone update to the right lead
+  let capturedLeadId = '';  // extracted from Lofty's API response after form submit
   const hooked = new WeakSet();
+
+  // ---- Lofty lead-ID capture -----------------------------------------------
+  // When the Lofty register form submits, Lofty's Vue app POSTs to its own API
+  // and gets back a response containing the new lead's ID. We intercept network
+  // responses during a short window after the form submit and look for that ID.
+  //
+  // Lofty uses both fetch() and XMLHttpRequest (axios falls back to XHR), so we
+  // patch BOTH. During the watch window we also DUMP every JSON response body to
+  // the console so the exact field path of the lead ID can be confirmed on a
+  // live test. capturedLeadId then rides along with the phone number so Zapier's
+  // "Update Lead" can target the record directly — no email lookup needed.
+  let watchingForLeadId = false;
+
+  // Recursively scan a parsed JSON object for the first plausible lead-ID field.
+  // Returns { path, value } or null. Logs every candidate it sees for diagnosis.
+  function findLeadId(obj, path, found) {
+    if (!obj || typeof obj !== 'object') return found;
+    for (const key in obj) {
+      if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+      const val = obj[key];
+      const here = path ? path + '.' + key : key;
+      const isIdKey = /^(lead_?id|id|contactId|contact_id|recordId|record_id)$/i.test(key);
+      if (isIdKey && (typeof val === 'string' || typeof val === 'number') && String(val).length) {
+        console.log('[otp] candidate id field:', here, '=', val);
+        if (!found) found = { path: here, value: String(val) };
+      } else if (val && typeof val === 'object') {
+        found = findLeadId(val, here, found);
+      }
+    }
+    return found;
+  }
+
+  function inspectBody(url, method, bodyText) {
+    if (!watchingForLeadId || capturedLeadId) return;
+    let data;
+    try { data = JSON.parse(bodyText); } catch (e) { return; }
+    if (!data || typeof data !== 'object') return;
+    // Diagnostic dump — trimmed so the console stays readable.
+    const dump = bodyText.length > 2000 ? bodyText.slice(0, 2000) + '…(truncated)' : bodyText;
+    console.log('[otp] ' + method + ' ' + url + ' →', dump);
+    const hit = findLeadId(data, '', null);
+    if (hit) {
+      capturedLeadId = hit.value;
+      console.log('[otp] captured Lofty lead ID:', capturedLeadId, '(from', hit.path + ')');
+    }
+  }
+
+  (function patchFetch() {
+    const _origFetch = window.fetch;
+    window.fetch = function (resource, init) {
+      const result = _origFetch.apply(this, arguments);
+      if (!watchingForLeadId) return result;
+      const method = ((init && init.method) || 'GET').toUpperCase();
+      const url = typeof resource === 'string' ? resource : (resource && resource.url) || '';
+      if (method === 'POST' || method === 'PATCH' || method === 'PUT') {
+        result.then(function (res) {
+          res.clone().text().then(function (t) { inspectBody(url, method, t); }).catch(function () {});
+        }).catch(function () {});
+      }
+      return result;
+    };
+  })();
+
+  (function patchXHR() {
+    const _open = XMLHttpRequest.prototype.open;
+    const _send = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.open = function (method, url) {
+      this.__otpMethod = (method || 'GET').toUpperCase();
+      this.__otpUrl = url || '';
+      return _open.apply(this, arguments);
+    };
+    XMLHttpRequest.prototype.send = function () {
+      const xhr = this;
+      const m = xhr.__otpMethod;
+      if (watchingForLeadId && (m === 'POST' || m === 'PATCH' || m === 'PUT')) {
+        xhr.addEventListener('load', function () {
+          try { inspectBody(xhr.__otpUrl, m, xhr.responseText); } catch (e) {}
+        });
+      }
+      return _send.apply(this, arguments);
+    };
+  })();
 
   // ---- Preview mode --------------------------------------------------------
   // Enable with `?lof-preview=phone|otp|edit|success` in the URL, OR call
@@ -649,6 +733,16 @@
       sendBtn.innerHTML = 'Sending...';
 
       closeOverlay(overlay);
+      // Update the existing Lofty lead's phone field via backend → Zapier.
+      // Send the Lead ID (preferred) so Zapier can call "Update Lead" directly.
+      // Fall back to email in case the ID wasn't captured in time.
+      if (capturedLeadId || capturedEmail) {
+        post('/update-lead-phone', {
+          leadId: capturedLeadId,
+          email: capturedEmail,
+          phoneNumber: parsed.e164
+        }).catch(function () {});
+      }
       fireOTP(parsed.e164);
     };
 
@@ -1104,7 +1198,15 @@
         btn.addEventListener('click', function () {
           const wrap = btn.closest('.submit');
           if (wrap && wrap.classList.contains('disabled')) return;
-          // Let Lofty's submit fire naturally so the lead is created immediately.
+          // Grab the email before Lofty closes the popup (fallback identifier).
+          const emailInput = document.querySelector('.pop-sign-log.register input[name="email"]');
+          if (emailInput) capturedEmail = emailInput.value.trim();
+          // Open the fetch-interception window so we catch Lofty's lead creation
+          // response and extract the Lead ID. Stop watching after 8 seconds.
+          capturedLeadId = '';
+          watchingForLeadId = true;
+          setTimeout(function () { watchingForLeadId = false; }, 8000);
+          // Let Lofty's submit fire naturally — the lead is created immediately.
           // Open our phone modal after a short delay for the OTP step.
           setTimeout(function () {
             if (document.getElementById('lof-phone-modal')) return;
