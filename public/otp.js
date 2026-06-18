@@ -3,7 +3,7 @@
  *
  * Loader (paste once in Lofty Custom Style & Script Script box):
  *   (function(){var s=document.createElement('script');
- *     s.src='https://lofty-verify-production-3aee.up.railway.app/otp.js?v=N+1';
+ *     s.src='https://lofty-verify-production-19e1.up.railway.app/otp.js?v=N+1';
  *     s.async=true;document.head.appendChild(s)})();
  *
  * Sequence:
@@ -42,7 +42,7 @@
   window.__loftyOTPLoaded = true;
 
   // ---- Config --------------------------------------------------------------
-  const BACKEND = 'https://lofty-verify-production-3aee.up.railway.app';
+  const BACKEND = 'https://lofty-verify-production-19e1.up.railway.app';
   const ZAPIER_HOOK = '';
   const CODE_TTL_SECONDS = 600;
   const RESEND_COOLDOWN = 30;
