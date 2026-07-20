@@ -968,7 +968,12 @@
       busy = true;
       setMessage('Checking...', 'info');
       try {
-        const res = await post('/verify-otp', { phoneNumber: phone, otp: code });
+        const res = await post('/verify-otp', {
+          phoneNumber: phone,
+          otp: code,
+          leadId: capturedLeadId,
+          email: capturedEmail
+        });
         const data = await res.json();
         if (data && data.status === 'approved') {
           verified = true;

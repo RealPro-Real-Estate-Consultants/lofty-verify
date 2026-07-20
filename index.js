@@ -88,6 +88,8 @@ app.post('/verify-otp', async (req, res) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             phoneNumber: req.body.phoneNumber,
+            leadId: req.body.leadId,
+            email: req.body.email,
             status: 'approved',
             verifiedAt: new Date().toISOString()
           })

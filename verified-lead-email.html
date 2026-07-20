@@ -1,0 +1,163 @@
+<!--
+  Verified Lead Alert — email template for Zapier "Email by Zapier" (or Gmail/Outlook) action.
+
+  HOW TO USE IN ZAPIER:
+  1. In your Zap's email action, switch the body field to HTML mode (Email by Zapier
+     supports this; Gmail/Outlook actions have an HTML toggle too).
+  2. Paste this entire file into the HTML body field.
+  3. Every [[BRACKETED]] placeholder below needs to be replaced with a real Zapier
+     dynamic field: click into the placeholder text, delete it, then use Zapier's
+     field picker to insert the matching field from your "Find Lead" step (or
+     earlier trigger step). Replace ALL occurrences of each placeholder.
+  4. The "View Lead Details" button href also needs the real Lofty lead URL field
+     substituted in (or build it from the lead ID if Lofty doesn't return a direct URL).
+-->
+<div style="margin:0;padding:0;background-color:#f4f5f7;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="552" cellpadding="0" cellspacing="0" style="max-width:552px;width:100%;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+
+          <!-- top accent bar -->
+          <tr>
+            <td style="background-color:#4457ff;height:4px;line-height:4px;font-size:0;">&nbsp;</td>
+          </tr>
+
+          <!-- logo / brand -->
+          <tr>
+            <td align="center" style="padding:32px 32px 16px 32px;">
+              <span style="font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;color:#1a1a2e;">
+                EverySWFLHome
+              </span>
+            </td>
+          </tr>
+
+          <!-- heading -->
+          <tr>
+            <td style="padding:8px 40px 4px 40px;font-family:Arial,Helvetica,sans-serif;">
+              <h1 style="margin:0;font-size:20px;line-height:28px;color:#1a1a2e;font-weight:700;">
+                Verified Lead Alert &#128241; (Phone Confirmed)
+              </h1>
+            </td>
+          </tr>
+
+          <!-- intro copy -->
+          <tr>
+            <td style="padding:12px 40px 20px 40px;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:22px;color:#4a4a58;">
+              Hi EverySWFLHome,<br>
+              A lead just completed SMS double opt-in verification. Here's the detail:
+            </td>
+          </tr>
+
+          <!-- lead detail card -->
+          <tr>
+            <td style="padding:0 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f7f8fa;border-radius:8px;">
+                <tr>
+                  <td align="center" style="padding:20px 24px 4px 24px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:#1a1a2e;">
+                    [[LEAD_FULL_NAME]]
+                  </td>
+                </tr>
+
+                <!-- SMS Verified badge -->
+                <tr>
+                  <td align="center" style="padding:4px 24px 16px 24px;">
+                    <span style="display:inline-block;background-color:#dcefdf;color:#1c8a3a;font-family:Arial,Helvetica,sans-serif;font-size:12px;font-weight:700;padding:4px 12px;border-radius:12px;">
+                      &#10003; SMS VERIFIED
+                    </span>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:0 24px 20px 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:8px;border:1px solid #ececf1;">
+
+                      <tr>
+                        <td style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b6b76;">
+                          &#128222; Phone (Verified)
+                        </td>
+                        <td align="right" style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a2e;font-weight:600;">
+                          <a href="tel:[[LEAD_PHONE]]" style="color:#1a1a2e;text-decoration:none;">[[LEAD_PHONE]]</a>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b6b76;">
+                          &#9993; Email
+                        </td>
+                        <td align="right" style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;">
+                          <a href="mailto:[[LEAD_EMAIL]]" style="color:#4457ff;text-decoration:none;">[[LEAD_EMAIL]]</a>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b6b76;">
+                          &#127760; Source
+                        </td>
+                        <td align="right" style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a2e;">
+                          [[LEAD_SOURCE]]
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b6b76;">
+                          &#128100; Agent
+                        </td>
+                        <td align="right" style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a2e;">
+                          [[LEAD_AGENT]]
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b6b76;">
+                          &#127991; Price
+                        </td>
+                        <td align="right" style="padding:14px 20px;border-bottom:1px solid #ececf1;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a2e;">
+                          [[LEAD_PRICE_RANGE]]
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td style="padding:14px 20px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#6b6b76;">
+                          &#128205; Inquiry Location
+                        </td>
+                        <td align="right" style="padding:14px 20px;font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1a1a2e;">
+                          [[LEAD_INQUIRY_LOCATION]]
+                        </td>
+                      </tr>
+
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding:0 24px 16px 24px;font-family:Arial,Helvetica,sans-serif;font-size:12px;color:#9494a0;">
+                    Verified at [[VERIFIED_AT_TIMESTAMP]] &mdash; contact this lead ASAP, they're more likely to respond the faster you react.
+                  </td>
+                </tr>
+
+                <tr>
+                  <td align="center" style="padding:0 24px 24px 24px;">
+                    <a href="[[LOFTY_LEAD_URL]]" target="_blank"
+                       style="display:inline-block;background-color:#4457ff;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;text-decoration:none;padding:12px 0;width:100%;border-radius:6px;text-align:center;">
+                      View Lead Details
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- footer -->
+          <tr>
+            <td style="padding:28px 40px 32px 40px;font-family:Arial,Helvetica,sans-serif;font-size:13px;color:#9494a0;">
+              Cheers,<br>
+              EverySWFLHome Team
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</div>
