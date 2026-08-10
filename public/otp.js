@@ -201,6 +201,31 @@
     });
   }
 
+  // Writes the lead's phone number onto their existing Lofty record via
+  // /update-lead-phone → Zapier (Zap A) → Lofty "Update Lead". Called when the
+  // lead first submits the phone modal AND again if they correct the number via
+  // "Wrong number? Edit" — otherwise Lofty keeps the original number while
+  // /verify-otp reports the corrected one, and Zap B's phone-based lead lookup
+  // finds no match.
+  function pushPhoneToLofty(e164) {
+    if (!capturedLeadId && !capturedEmail) {
+      console.warn('[otp] no leadId or email captured — phone update NOT sent');
+      return;
+    }
+    console.log('[otp] POST /update-lead-phone', {
+      leadId: capturedLeadId, email: capturedEmail, phoneNumber: e164
+    });
+    post('/update-lead-phone', {
+      leadId: capturedLeadId,
+      email: capturedEmail,
+      phoneNumber: e164
+    }).then(function (r) {
+      console.log('[otp] update-lead-phone response status:', r.status);
+    }).catch(function (err) {
+      console.error('[otp] update-lead-phone request FAILED:', err);
+    });
+  }
+
   function closeOverlay(overlay) {
     overlay.remove();
     if (!document.querySelector('.lof-overlay')) {
@@ -741,22 +766,7 @@
       // Update the existing Lofty lead's phone field via backend → Zapier.
       // Send the Lead ID (preferred) so Zapier can call "Update Lead" directly.
       // Fall back to email in case the ID wasn't captured in time.
-      if (capturedLeadId || capturedEmail) {
-        console.log('[otp] POST /update-lead-phone', {
-          leadId: capturedLeadId, email: capturedEmail, phoneNumber: parsed.e164
-        });
-        post('/update-lead-phone', {
-          leadId: capturedLeadId,
-          email: capturedEmail,
-          phoneNumber: parsed.e164
-        }).then(function (r) {
-          console.log('[otp] update-lead-phone response status:', r.status);
-        }).catch(function (err) {
-          console.error('[otp] update-lead-phone request FAILED:', err);
-        });
-      } else {
-        console.warn('[otp] no leadId or email captured — phone update NOT sent');
-      }
+      pushPhoneToLofty(parsed.e164);
       fireOTP(parsed.e164);
     };
 
@@ -939,7 +949,11 @@
       buildEditPhoneModal(
         localPhone,
         function (newE164) {
-          // Submit → send new code, reopen OTP with new phone
+          // Submit → correct the phone on the Lofty record, send new code,
+          // reopen OTP with the new phone. The Lofty write matters: without it
+          // the record keeps the original number while /verify-otp reports the
+          // corrected one.
+          pushPhoneToLofty(newE164);
           post('/send-verification', { phoneNumber: newE164 }).catch(function () {});
           buildOTPModal(newE164);
         },
