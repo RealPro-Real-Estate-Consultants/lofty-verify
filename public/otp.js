@@ -189,9 +189,20 @@
     if (previewMode) {
       console.log('[lof-preview] would POST', path, body);
       // /verify-otp returns approved so any code passes through.
+      // /send-verification reports the number as allowed, unless the preview
+      // page sets window.__lofPreviewBlock to a line type to rehearse the
+      // rejection copy (e.g. window.__lofPreviewBlock = 'landline').
+      let payload = { status: 'approved' };
+      if (path === '/send-verification') {
+        payload = window.__lofPreviewBlock
+          ? { sent: false, reason: 'blocked_line_type', lineType: window.__lofPreviewBlock,
+              message: "That looks like a landline, which can't receive text messages. Please enter a mobile number." }
+          : { sent: true, lineType: 'mobile', flagged: false };
+      }
       return Promise.resolve({
         ok: true,
-        json: function () { return Promise.resolve({ status: 'approved' }); }
+        status: 200,
+        json: function () { return Promise.resolve(payload); }
       });
     }
     return fetch(BACKEND + path, {
@@ -199,6 +210,56 @@
       headers: HEADERS,
       body: JSON.stringify(body)
     });
+  }
+
+  // Requests an OTP and reports back whether it was actually sent.
+  //
+  // The backend runs a Twilio Lookup (Line Type Intelligence) BEFORE Verify, so
+  // this call is now a gate, not a fire-and-forget. A number whose line type is
+  // blocked gets no SMS and must not reach Lofty either, so every caller has to
+  // wait for the answer before opening the OTP modal or calling
+  // pushPhoneToLofty().
+  //
+  // Resolves to { sent: true } or { sent: false, message }. FAILS OPEN on a
+  // network error or an unreadable body: a Railway hiccup should not turn a
+  // real lead away, and an old/unknown response shape means the backend
+  // predates this gate.
+  async function sendVerification(e164) {
+    let res;
+    try {
+      res = await post('/send-verification', { phoneNumber: e164 });
+    } catch (err) {
+      console.error('[otp] send-verification request FAILED — allowing through:', err);
+      return { sent: true, failedOpen: true };
+    }
+    let data = null;
+    try {
+      data = await res.json();
+    } catch (err) {
+      data = null;
+    }
+    if (!data || typeof data.sent === 'undefined') {
+      console.warn('[otp] send-verification gave no decision — allowing through');
+      return { sent: true, failedOpen: true };
+    }
+    if (data.sent) {
+      console.log('[otp] send-verification OK — line type:', data.lineType, 'flagged:', !!data.flagged);
+      return { sent: true, lineType: data.lineType, flagged: !!data.flagged };
+    }
+    if (data.reason === 'send_failed') {
+      // Twilio accepted the number but the SMS itself failed. Not a rejection
+      // of the number, so say so in retryable language.
+      console.warn('[otp] send-verification could not send:', data.error);
+      return { sent: false, retryable: true,
+               message: 'We could not send the code right now. Please try again.' };
+    }
+    console.log('[otp] send-verification REJECTED —', data.reason, data.lineType || '');
+    return {
+      sent: false,
+      reason: data.reason,
+      lineType: data.lineType,
+      message: data.message || 'Please enter a mobile number that can receive text messages.'
+    };
   }
 
   // Writes the lead's phone number onto their existing Lofty record via
@@ -749,7 +810,8 @@
     });
 
     let submitting = false;
-    sendBtn.onclick = function () {
+    const sendBtnLabel = sendBtn.innerHTML;
+    sendBtn.onclick = async function () {
       if (submitting) return;
       const parsed = parsePhone(phoneEl.value);
       if (!parsed) {
@@ -760,14 +822,30 @@
       errEl.textContent = '';
       submitting = true;
       sendBtn.disabled = true;
-      sendBtn.innerHTML = 'Sending...';
+      sendBtn.innerHTML = 'Checking number...';
+
+      // The backend checks the line type before sending anything. Hold this
+      // modal open until we know the answer — a rejected number must not reach
+      // Lofty, and the lead needs to see why here rather than sit in front of
+      // an OTP screen waiting for a code that will never arrive.
+      const result = await sendVerification(parsed.e164);
+
+      if (!result.sent) {
+        errEl.textContent = result.message;
+        submitting = false;
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = sendBtnLabel;
+        phoneEl.focus();
+        phoneEl.select();
+        return;
+      }
 
       closeOverlay(overlay);
       // Update the existing Lofty lead's phone field via backend → Zapier.
       // Send the Lead ID (preferred) so Zapier can call "Update Lead" directly.
       // Fall back to email in case the ID wasn't captured in time.
       pushPhoneToLofty(parsed.e164);
-      fireOTP(parsed.e164);
+      openOTP(parsed.e164);
     };
 
     phoneEl.addEventListener('keydown', function (e) {
@@ -949,12 +1027,13 @@
       buildEditPhoneModal(
         localPhone,
         function (newE164) {
-          // Submit → correct the phone on the Lofty record, send new code,
-          // reopen OTP with the new phone. The Lofty write matters: without it
-          // the record keeps the original number while /verify-otp reports the
-          // corrected one.
+          // Submit → correct the phone on the Lofty record and reopen OTP with
+          // the new phone. The code has already been sent and the line type
+          // already cleared inside the edit modal, which is where a rejection
+          // has to surface. The Lofty write matters: without it the record
+          // keeps the original number while /verify-otp reports the corrected
+          // one.
           pushPhoneToLofty(newE164);
-          post('/send-verification', { phoneNumber: newE164 }).catch(function () {});
           buildOTPModal(newE164);
         },
         function () {
@@ -964,15 +1043,21 @@
       );
     };
 
-    resendBtn.onclick = function () {
-      setMessage('New code sent.', 'ok');
+    resendBtn.onclick = async function () {
+      setMessage('Sending a new code...', 'info');
       clearBoxes();
       boxes[0].focus();
-      post('/send-verification', { phoneNumber: phone }).catch(function () {
-        setMessage('Could not resend. Try again.', 'err');
-      });
-      startExpiryCountdown();
       startResendCooldown(RESEND_COOLDOWN);
+      // This number already cleared the line-type gate to get here, and the
+      // backend caches the lookup, so a rejection is not expected — handled
+      // anyway so a resend can never silently do nothing.
+      const result = await sendVerification(phone);
+      if (!result.sent) {
+        setMessage(result.message, 'err');
+        return;
+      }
+      setMessage('New code sent.', 'ok');
+      startExpiryCountdown();
     };
 
     async function doVerify() {
@@ -1056,12 +1141,36 @@
       if (onCancel) onCancel();
     };
 
-    overlay.querySelector('#lof-edit-go').onclick = function () {
+    const goBtn = overlay.querySelector('#lof-edit-go');
+    const goBtnLabel = goBtn.innerHTML;
+    let editSubmitting = false;
+    goBtn.onclick = async function () {
+      if (editSubmitting) return;
       const parsed = parsePhone(input.value);
       if (!parsed) {
         errEl.textContent = 'Please enter a valid US mobile number with area code.';
         return;
       }
+      errEl.textContent = '';
+      editSubmitting = true;
+      goBtn.disabled = true;
+      goBtn.innerHTML = 'Checking number...';
+
+      // Same line-type gate as the first phone modal. Requesting the code here
+      // rather than in onSubmit keeps this modal open so a rejection has
+      // somewhere to show — onSubmit only runs once the number is cleared.
+      const result = await sendVerification(parsed.e164);
+
+      if (!result.sent) {
+        errEl.textContent = result.message;
+        editSubmitting = false;
+        goBtn.disabled = false;
+        goBtn.innerHTML = goBtnLabel;
+        input.focus();
+        input.select();
+        return;
+      }
+
       closeOverlay(overlay);
       onSubmit(parsed.e164);
     };
@@ -1073,9 +1182,12 @@
     setTimeout(function () { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }, 50);
   }
 
-  function fireOTP(phone) {
+  // Opens the OTP modal for a number whose code has ALREADY been requested and
+  // allowed by sendVerification(). It no longer sends the code itself — the
+  // Lookup gate has to resolve before the modal appears, so the send now lives
+  // in the caller.
+  function openOTP(phone) {
     if (verified || document.getElementById('lof-otp-modal')) return;
-    post('/send-verification', { phoneNumber: phone }).catch(function () {});
     buildOTPModal(phone);
   }
 
