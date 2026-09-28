@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node test-lookup.js && node test-lookup-stats.js"
+    "test": "node test-lookup.js && node test-lookup-stats.js && node test-lookup-config.js"
   },
   "engines": {
     "node": ">=18.0.0"

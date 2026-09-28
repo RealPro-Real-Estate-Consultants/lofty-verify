@@ -12,8 +12,14 @@
  */
 require('dotenv').config();
 
-const BLOCKED = (process.env.BLOCKED_LINE_TYPES || 'landline').split(',').map(s => s.trim()).filter(Boolean);
-const FLAGGED = (process.env.FLAGGED_LINE_TYPES || 'nonFixedVoip').split(',').map(s => s.trim()).filter(Boolean);
+// Same parsing and defaults as index.js: unset takes the default, an empty
+// value means "none".
+const typeList = (raw, fallback) =>
+  (raw === undefined ? fallback : raw).split(',').map(s => s.trim()).filter(Boolean);
+
+const BLOCKED = typeList(process.env.BLOCKED_LINE_TYPES, '');
+const NO_SMS  = typeList(process.env.NO_SMS_LINE_TYPES, 'landline');
+const FLAGGED = typeList(process.env.FLAGGED_LINE_TYPES, 'nonFixedVoip');
 
 const numbers = process.argv.slice(2);
 
@@ -35,12 +41,13 @@ const client = require('twilio')(
 
 function verdict(type) {
   if (BLOCKED.includes(type)) return 'BLOCKED  — no OTP, nothing written to Lofty';
+  if (NO_SMS.includes(type))  return 'NO SMS   — saved to Lofty with its line type, no OTP sent';
   if (FLAGGED.includes(type)) return 'FLAGGED  — OTP sends, marked for review in Lofty';
   return 'ALLOWED  — normal flow';
 }
 
 (async () => {
-  console.log('Policy — block: [' + BLOCKED.join(', ') + ']  flag: [' + FLAGGED.join(', ') + ']\n');
+  console.log('Policy — block: [' + BLOCKED.join(', ') + ']  no_sms: [' + NO_SMS.join(', ') + ']  flag: [' + FLAGGED.join(', ') + ']\n');
 
   let sawRealType = false;
 

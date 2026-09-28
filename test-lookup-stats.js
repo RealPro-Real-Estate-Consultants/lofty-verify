@@ -90,7 +90,7 @@ function check(name, fn) {
   };
 
   await post('/send-verification', { phoneNumber: '15551230001' });  // mobile
-  await post('/send-verification', { phoneNumber: '15551230002' });  // landline -> blocked
+  await post('/send-verification', { phoneNumber: '15551230002' });  // landline -> no SMS, saved
   await post('/send-verification', { phoneNumber: '15551230003' });  // voip -> flagged
   await post('/send-verification', { phoneNumber: '15551230006' });  // unresolved
   await post('/send-verification', { phoneNumber: '15551230004' });  // lookup failed
@@ -98,7 +98,8 @@ function check(name, fn) {
   let s = await getStats();
   check('stats tallies every send attempt', () => {
     assert.strictEqual(s.body.sendAttempts, 5);
-    assert.strictEqual(s.body.blocked, 1);
+    assert.strictEqual(s.body.noSms, 1, 'landline counts as no_sms');
+    assert.strictEqual(s.body.blocked, 0, 'nothing is blocked by default');
     assert.strictEqual(s.body.flagged, 1);
     assert.strictEqual(s.body.allowed, 3);
   });
@@ -130,6 +131,16 @@ function check(name, fn) {
     assert.strictEqual(zapierPayloads.length, 1);
     assert.strictEqual(zapierPayloads[0].lineTypeStatus, 'lookup_failed');
     assert.strictEqual(zapierPayloads[0].lineType, 'unknown');
+  });
+
+  zapierPayloads = [];
+  await post('/update-lead-phone', { phoneNumber: '15551230002', email: 'a@b.com', leadId: '1' });
+  check('a landline reaches Lofty with its line type and carrier', () => {
+    assert.strictEqual(zapierPayloads.length, 1);
+    assert.strictEqual(zapierPayloads[0].phoneNumber, '15551230002');
+    assert.strictEqual(zapierPayloads[0].lineType, 'landline');
+    assert.strictEqual(zapierPayloads[0].carrier, 'CenturyLink');
+    assert.strictEqual(zapierPayloads[0].lineTypeStatus, 'resolved');
   });
 
   zapierPayloads = [];

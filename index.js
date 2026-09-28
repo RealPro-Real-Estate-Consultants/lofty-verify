@@ -46,23 +46,33 @@ app.use((req, res, next) => {
 // Cost: ~$0.008 per uncached lookup.
 //
 // Per-type policy:
-//   block — no OTP, nothing written to Lofty; the phone modal shows an error
-//   flag  — OTP sends as normal, but the line type rides along to Lofty so the
-//           record can be filtered or reviewed later
-//   allow — untouched
+//   block  — no OTP, nothing written to Lofty; the phone modal shows an error
+//   no_sms — the number is saved to Lofty with its line type, but no OTP is
+//            sent. For lines that cannot receive SMS: Twilio Verify rejects
+//            them anyway (error 60205), so sending would only trap the lead in
+//            a "could not send the code" loop. The number is still worth
+//            keeping — the team can call it.
+//   flag   — OTP sends as normal, but the line type rides along to Lofty so the
+//            record can be filtered or reviewed later
+//   allow  — untouched
 //
-// Defaults below are the agreed policy. Both lists are overridable from the
-// Railway variables without a code change, e.g.
-//   BLOCKED_LINE_TYPES=landline,tollFree
+// Defaults below are the agreed policy: nothing is blocked outright. All three
+// lists are overridable from the Railway variables without a code change, e.g.
+//   BLOCKED_LINE_TYPES=tollFree
+//   NO_SMS_LINE_TYPES=landline,voicemail
 //   FLAGGED_LINE_TYPES=nonFixedVoip,fixedVoip
+// Set a variable to an empty value to turn that list off entirely.
 //
 // Possible Twilio values: mobile, landline, fixedVoip, nonFixedVoip, personal,
 // tollFree, premium, sharedCost, uan, voicemail, pager, unknown.
 
+// An unset variable takes the default; a variable set to an empty value means
+// "none" — otherwise there would be no way to switch a list off from Railway.
 const parseTypeList = (raw, fallback) =>
-  (raw || fallback).split(',').map(s => s.trim()).filter(Boolean);
+  (raw === undefined ? fallback : raw).split(',').map(s => s.trim()).filter(Boolean);
 
-const BLOCKED_LINE_TYPES = parseTypeList(process.env.BLOCKED_LINE_TYPES, 'landline');
+const BLOCKED_LINE_TYPES = parseTypeList(process.env.BLOCKED_LINE_TYPES, '');
+const NO_SMS_LINE_TYPES  = parseTypeList(process.env.NO_SMS_LINE_TYPES, 'landline');
 const FLAGGED_LINE_TYPES = parseTypeList(process.env.FLAGGED_LINE_TYPES, 'nonFixedVoip');
 
 // Shown to the lead in the phone modal when their number is blocked.
@@ -79,8 +89,15 @@ const BLOCK_MESSAGES = {
 const DEFAULT_BLOCK_MESSAGE =
   'Please enter a mobile number that can receive text messages.';
 
+// Shown for a no_sms line. The number has been saved, so the tone is "got it"
+// rather than "rejected".
+const NO_SMS_MESSAGE =
+  "That looks like a landline, which can't receive text messages. " +
+  "We've saved it so our team can reach you by phone.";
+
 function policyFor(lineType) {
   if (BLOCKED_LINE_TYPES.includes(lineType)) return 'block';
+  if (NO_SMS_LINE_TYPES.includes(lineType)) return 'no_sms';
   if (FLAGGED_LINE_TYPES.includes(lineType)) return 'flag';
   return 'allow';
 }
@@ -178,6 +195,7 @@ const lookupStats = {
   sendAttempts: 0,
   allowed: 0,
   flagged: 0,
+  noSms: 0,
   blocked: 0,
   byLineType: {},
   byStatus: {},
@@ -194,6 +212,7 @@ function recordLookup(lookup) {
   bump(lookupStats.byStatus, status);
   bump(lookupStats.bySource, lookup.source);
   if (lookup.policy === 'block') lookupStats.blocked++;
+  else if (lookup.policy === 'no_sms') lookupStats.noSms++;
   else if (lookup.policy === 'flag') lookupStats.flagged++;
   else lookupStats.allowed++;
   if (status === 'lookup_failed') {
@@ -253,16 +272,19 @@ app.get('/lookup-stats', (req, res) => {
   }
 
   res.status(200).send(Object.assign({ health: health }, lookupStats, {
-    policy: { blocked: BLOCKED_LINE_TYPES, flagged: FLAGGED_LINE_TYPES },
+    policy: { blocked: BLOCKED_LINE_TYPES, noSms: NO_SMS_LINE_TYPES, flagged: FLAGGED_LINE_TYPES },
     cachedNumbers: lookupCache.size
   }));
 });
 
 // Gate: Lookup runs BEFORE Verify. A blocked number gets no SMS, and the
 // browser never calls /update-lead-phone for it, so nothing reaches Lofty.
+// A no_sms number also gets no SMS, but saveToLofty tells the browser to push
+// it to Lofty anyway so the line type is recorded on the lead.
 //
 // Always answers with a body carrying the decision:
 //   200 { sent: true,  lineType, flagged }
+//   200 { sent: false, reason: 'no_sms_line_type', lineType, saveToLofty: true, message }
 //   200 { sent: false, reason: 'blocked_line_type', lineType, message }
 //   429 { sent: false, reason: 'rate_limited', message }
 //   500 { sent: false, reason: 'send_failed', error }
@@ -289,6 +311,17 @@ app.post('/send-verification', async (req, res) => {
     ', policy: ' + lookup.policy + ', source: ' + lookup.source +
     ', status: ' + lineTypeStatus(lookup)
   );
+
+  if (lookup.policy === 'no_sms') {
+    console.log('send-verification NO SMS ' + e164 + ' — line type: ' + lookup.type + ' (saved to Lofty, no OTP)');
+    return res.status(200).send({
+      sent: false,
+      reason: 'no_sms_line_type',
+      lineType: lookup.type,
+      saveToLofty: true,
+      message: NO_SMS_MESSAGE
+    });
+  }
 
   if (lookup.policy === 'block') {
     console.log('send-verification BLOCKED ' + e164 + ' — line type: ' + lookup.type);
@@ -394,5 +427,5 @@ app.post('/verify-otp', async (req, res) => {
 
 app.listen(port, () => {
   console.log('Server started at http://localhost:' + port);
-  console.log('Lookup policy — block: [' + BLOCKED_LINE_TYPES.join(', ') + '] flag: [' + FLAGGED_LINE_TYPES.join(', ') + ']');
+  console.log('Lookup policy — block: [' + BLOCKED_LINE_TYPES.join(', ') + '] no_sms: [' + NO_SMS_LINE_TYPES.join(', ') + '] flag: [' + FLAGGED_LINE_TYPES.join(', ') + ']');
 });

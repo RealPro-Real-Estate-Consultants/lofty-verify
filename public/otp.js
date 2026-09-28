@@ -190,14 +190,21 @@
       console.log('[lof-preview] would POST', path, body);
       // /verify-otp returns approved so any code passes through.
       // /send-verification reports the number as allowed, unless the preview
-      // page sets window.__lofPreviewBlock to a line type to rehearse the
-      // rejection copy (e.g. window.__lofPreviewBlock = 'landline').
+      // page sets one of these to rehearse the other paths:
+      //   window.__lofPreviewLandline = true    saved-landline notice
+      //   window.__lofPreviewBlock = 'tollFree' outright rejection copy
       let payload = { status: 'approved' };
       if (path === '/send-verification') {
-        payload = window.__lofPreviewBlock
-          ? { sent: false, reason: 'blocked_line_type', lineType: window.__lofPreviewBlock,
-              message: "That looks like a landline, which can't receive text messages. Please enter a mobile number." }
-          : { sent: true, lineType: 'mobile', flagged: false };
+        if (window.__lofPreviewLandline) {
+          payload = { sent: false, reason: 'no_sms_line_type', lineType: 'landline', saveToLofty: true,
+                      message: "That looks like a landline, which can't receive text messages. " +
+                               "We've saved it so our team can reach you by phone." };
+        } else if (window.__lofPreviewBlock) {
+          payload = { sent: false, reason: 'blocked_line_type', lineType: window.__lofPreviewBlock,
+                      message: 'Please enter a personal mobile number that can receive text messages.' };
+        } else {
+          payload = { sent: true, lineType: 'mobile', flagged: false };
+        }
       }
       return Promise.resolve({
         ok: true,
@@ -253,6 +260,18 @@
       return { sent: false, retryable: true,
                message: 'We could not send the code right now. Please try again.' };
     }
+    if (data.reason === 'no_sms_line_type') {
+      // A landline (by default): no code can be sent, but the number is worth
+      // keeping. The caller saves it to Lofty and offers a way forward.
+      console.log('[otp] send-verification NO SMS — line type:', data.lineType);
+      return {
+        sent: false,
+        noSms: true,
+        lineType: data.lineType,
+        message: data.message ||
+          "That number can't receive text messages. We've saved it so our team can reach you by phone."
+      };
+    }
     console.log('[otp] send-verification REJECTED —', data.reason, data.lineType || '');
     return {
       sent: false,
@@ -285,6 +304,49 @@
     }).catch(function (err) {
       console.error('[otp] update-lead-phone request FAILED:', err);
     });
+  }
+
+  // A number that can't receive SMS (a landline, by default) is still a real
+  // contact the team can call, so it is saved to Lofty — with its line type and
+  // carrier riding along on the Zap A payload — rather than thrown away.
+  //
+  // No code can be sent, so the lead can't finish verification. Rather than
+  // trap them, the modal stays open with two ways forward: enter a mobile to
+  // get a code, or continue to the site without text alerts. SMS Verified is
+  // never set for these leads, so they stay out of SMS campaigns.
+  //
+  // `noteEl` is the modal's message line; the continue link is inserted right
+  // after it. `savedFor` remembers the last number saved so a double-click on
+  // the same landline doesn't fire Zap A twice.
+  function showNoSmsNotice(overlay, noteEl, e164, message) {
+    if (noteEl.dataset.savedFor !== e164) {
+      pushPhoneToLofty(e164);
+      noteEl.dataset.savedFor = e164;
+    }
+    noteEl.textContent = message + ' To get text alerts, enter a mobile number instead.';
+    noteEl.classList.add('lof-note');
+
+    if (!overlay.querySelector('.lof-continue')) {
+      const cont = document.createElement('button');
+      cont.type = 'button';
+      cont.className = 'lof-link-btn lof-link-center lof-continue';
+      cont.textContent = 'Continue without text alerts';
+      cont.onclick = function () {
+        console.log('[otp] lead continued without SMS verification — line type saved to Lofty');
+        closeOverlay(overlay);
+        buildSuccessModal();
+      };
+      noteEl.insertAdjacentElement('afterend', cont);
+    }
+  }
+
+  // Resets the message line back to its normal (error) role and removes the
+  // continue link, before each new submit.
+  function clearNoSmsNotice(overlay, noteEl) {
+    noteEl.textContent = '';
+    noteEl.classList.remove('lof-note');
+    const cont = overlay.querySelector('.lof-continue');
+    if (cont) cont.remove();
   }
 
   function closeOverlay(overlay) {
@@ -819,7 +881,7 @@
         phoneEl.focus();
         return;
       }
-      errEl.textContent = '';
+      clearNoSmsNotice(overlay, errEl);
       submitting = true;
       sendBtn.disabled = true;
       sendBtn.innerHTML = 'Checking number...';
@@ -831,7 +893,11 @@
       const result = await sendVerification(parsed.e164);
 
       if (!result.sent) {
-        errEl.textContent = result.message;
+        if (result.noSms) {
+          showNoSmsNotice(overlay, errEl, parsed.e164, result.message);
+        } else {
+          errEl.textContent = result.message;
+        }
         submitting = false;
         sendBtn.disabled = false;
         sendBtn.innerHTML = sendBtnLabel;
@@ -1151,7 +1217,7 @@
         errEl.textContent = 'Please enter a valid US mobile number with area code.';
         return;
       }
-      errEl.textContent = '';
+      clearNoSmsNotice(overlay, errEl);
       editSubmitting = true;
       goBtn.disabled = true;
       goBtn.innerHTML = 'Checking number...';
@@ -1162,7 +1228,11 @@
       const result = await sendVerification(parsed.e164);
 
       if (!result.sent) {
-        errEl.textContent = result.message;
+        if (result.noSms) {
+          showNoSmsNotice(overlay, errEl, parsed.e164, result.message);
+        } else {
+          errEl.textContent = result.message;
+        }
         editSubmitting = false;
         goBtn.disabled = false;
         goBtn.innerHTML = goBtnLabel;
@@ -1533,6 +1603,7 @@
     .lof-sub { font-size: 15.5px; color: #4d586e; line-height: 1.55; margin: 0 0 16px; }
     .lof-sub-sm { font-size: 13.5px; color: #4d586e; line-height: 1.5; margin: 0 0 14px; }
     .lof-err { min-height: 16px; font-size: 12.5px; color: #c33; margin: 4px 0 8px; }
+    .lof-err.lof-note { color: #3e5da4; }
     .lof-fineprint { font-size: 11.5px; color: #8b93a7; line-height: 1.5; margin: 10px 0 0; }
     .lof-btn-primary {
       width: 100%; padding: 14px 16px; border: 0; border-radius: 10px;

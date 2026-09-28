@@ -49,6 +49,7 @@ process.env.PORT = String(PORT);
 process.env.VERIFY_SERVICE_SID = 'VAtest';
 process.env.RATE_LIMIT_MAX = '10';
 delete process.env.BLOCKED_LINE_TYPES;
+delete process.env.NO_SMS_LINE_TYPES;
 delete process.env.FLAGGED_LINE_TYPES;
 
 require('./index.js');
@@ -87,16 +88,17 @@ function check(name, fn) {
     assert.ok(smsSent.includes('+15551230001'), 'SMS should be sent');
   });
 
-  // 2. landline -> BLOCKED, no SMS
+  // 2. landline -> NO SMS, but saved to Lofty (Verify would reject it: 60205)
   smsSent = [];
   r = await send('15551230002');
-  check('landline is blocked with no SMS', () => {
+  check('landline gets no SMS but is marked for saving to Lofty', () => {
     assert.strictEqual(r.status, 200);
     assert.strictEqual(r.body.sent, false);
-    assert.strictEqual(r.body.reason, 'blocked_line_type');
+    assert.strictEqual(r.body.reason, 'no_sms_line_type');
+    assert.strictEqual(r.body.saveToLofty, true);
     assert.strictEqual(r.body.lineType, 'landline');
     assert.ok(/landline/i.test(r.body.message), 'message should explain why');
-    assert.strictEqual(smsSent.length, 0, 'no SMS may be sent for a blocked number');
+    assert.strictEqual(smsSent.length, 0, 'no SMS may be sent to a landline');
   });
 
   // 3. nonFixedVoip -> allowed but FLAGGED, SMS sent
