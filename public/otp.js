@@ -50,6 +50,14 @@
   const SEARCH_URL = 'https://everyswflhome.com/listing';   // where the "Start Searching Homes" button takes the user
   const HEADERS = { 'Content-Type': 'application/json' };
 
+  // Google Ads "Verified lead" conversion (Sign-ups goal, Secondary — observed
+  // only, never bid on). Fires once per lead when they prove a real phone
+  // number. Lofty's own tag still fires "Website lead" at the name + email step.
+  const ADS_TAG_ID = 'AW-410833359';
+  const ADS_VERIFIED_LEAD = 'AW-410833359/cZeWCOvlzosdEM-j88MB';
+  const ADS_COUNT_NO_SMS = true;    // a saved landline is a real, callable number
+  const ADS_COUNT_FLAGGED = false;  // a burner-app number that passes the code is not
+
   // House photo for the off-market section. Served from the Railway /public
   // folder in production; from a relative path when running preview.html offline.
   // File lives at lofty-verify/public/success modal image.png.
@@ -62,6 +70,8 @@
   let verified = false;
   let capturedEmail = '';   // set at Lofty submit time; used to link the phone update to the right lead
   let capturedLeadId = '';  // extracted from Lofty's API response after form submit
+  let adsReported = false;  // the Verified lead conversion has fired for this visitor
+  const lineChecks = {};    // e164 → { lineType, flagged } from the last allowed send
   const hooked = new WeakSet();
 
   // ---- Lofty lead-ID capture -----------------------------------------------
@@ -193,6 +203,7 @@
       // page sets one of these to rehearse the other paths:
       //   window.__lofPreviewLandline = true    saved-landline notice
       //   window.__lofPreviewBlock = 'tollFree' outright rejection copy
+      //   window.__lofPreviewFlagged = true     burner number: code sends, no Ads conversion
       let payload = { status: 'approved' };
       if (path === '/send-verification') {
         if (window.__lofPreviewLandline) {
@@ -203,7 +214,9 @@
           payload = { sent: false, reason: 'blocked_line_type', lineType: window.__lofPreviewBlock,
                       message: 'Please enter a personal mobile number that can receive text messages.' };
         } else {
-          payload = { sent: true, lineType: 'mobile', flagged: false };
+          payload = window.__lofPreviewFlagged
+            ? { sent: true, lineType: 'nonFixedVoip', flagged: true }
+            : { sent: true, lineType: 'mobile', flagged: false };
         }
       }
       return Promise.resolve({
@@ -251,6 +264,7 @@
     }
     if (data.sent) {
       console.log('[otp] send-verification OK — line type:', data.lineType, 'flagged:', !!data.flagged);
+      lineChecks[e164] = { lineType: data.lineType, flagged: !!data.flagged };
       return { sent: true, lineType: data.lineType, flagged: !!data.flagged };
     }
     if (data.reason === 'send_failed') {
@@ -292,18 +306,105 @@
       console.warn('[otp] no leadId or email captured — phone update NOT sent');
       return;
     }
-    console.log('[otp] POST /update-lead-phone', {
-      leadId: capturedLeadId, email: capturedEmail, phoneNumber: e164
-    });
-    post('/update-lead-phone', {
+    const body = Object.assign({
       leadId: capturedLeadId,
       email: capturedEmail,
       phoneNumber: e164
-    }).then(function (r) {
+    }, getClickIds());
+    console.log('[otp] POST /update-lead-phone', body);
+    post('/update-lead-phone', body).then(function (r) {
       console.log('[otp] update-lead-phone response status:', r.status);
     }).catch(function (err) {
       console.error('[otp] update-lead-phone request FAILED:', err);
     });
+  }
+
+  // ---- Google Ads ----------------------------------------------------------
+  // The ad click ID rides along to Lofty on both Zapier payloads, so a lead can
+  // later be traced back to the click that brought them (offline conversion
+  // imports, retractions). Sources, most direct first: the landing URL, Google's
+  // own _gcl_aw / _gcl_gb cookies, then Lofty's _gclid cookie. URL values are
+  // stashed for the session because leads usually register a few pages after
+  // landing, and Google's cookies are missing when ad-storage consent is denied.
+  const CLICK_ID_KEYS = ['gclid', 'gbraid', 'wbraid'];
+  const CLICK_ID_RE = /^[A-Za-z0-9_-]{1,200}$/;
+
+  function readCookie(name) {
+    const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+    if (!m) return '';
+    try { return decodeURIComponent(m[1]); } catch (e) { return m[1]; }
+  }
+
+  // Google's cookies hold "GCL.<timestamp>.<id>"; the ID is everything after.
+  function gclCookieId(name) {
+    const v = readCookie(name);
+    return v ? v.split('.').slice(2).join('.') : '';
+  }
+
+  (function stashClickIds() {
+    try {
+      const params = new URLSearchParams(location.search);
+      CLICK_ID_KEYS.forEach(function (k) {
+        const v = params.get(k);
+        if (v && CLICK_ID_RE.test(v)) sessionStorage.setItem('lof_' + k, v);
+      });
+    } catch (e) {}
+  })();
+
+  function getClickIds() {
+    function stashed(k) {
+      try { return sessionStorage.getItem('lof_' + k) || ''; } catch (e) { return ''; }
+    }
+    const ids = {
+      gclid: stashed('gclid') || gclCookieId('_gcl_aw') || readCookie('_gclid'),
+      gbraid: stashed('gbraid') || gclCookieId('_gcl_gb'),
+      wbraid: stashed('wbraid')
+    };
+    CLICK_ID_KEYS.forEach(function (k) { if (!CLICK_ID_RE.test(ids[k])) ids[k] = ''; });
+    return ids;
+  }
+
+  // Fires the "Verified lead" conversion once per visitor. `how` is 'otp' (code
+  // confirmed) or 'no_sms' (a landline saved without a code).
+  //
+  // The Lofty lead ID is the transaction ID: Google drops a repeat with the
+  // same ID, and it is what a retraction upload matches on if an agent later
+  // finds the lead was junk. Email and phone go as enhanced-conversion data,
+  // which gtag hashes in the browser. They are attached to this one event
+  // rather than gtag('set'), so the other Google tags on the page never see them.
+  function reportVerifiedLead(e164, how) {
+    if (adsReported) return;
+    if (how === 'no_sms' && !ADS_COUNT_NO_SMS) return;
+    const check = lineChecks[e164];
+    if (how === 'otp' && check && check.flagged && !ADS_COUNT_FLAGGED) {
+      console.log('[otp] Verified lead NOT reported to Google Ads — flagged line type:', check.lineType);
+      return;
+    }
+    adsReported = true;
+
+    const params = { send_to: ADS_VERIFIED_LEAD };
+    if (capturedLeadId) params.transaction_id = capturedLeadId;
+    params.user_data = { phone_number: '+' + e164 };
+    if (capturedEmail) params.user_data.email = capturedEmail;
+
+    if (previewMode) {
+      console.log('[lof-preview] would report Verified lead (' + how + ')', params);
+      return;
+    }
+    if (typeof window.gtag !== 'function') {
+      console.warn('[otp] gtag is not on this page — Verified lead NOT reported');
+      return;
+    }
+    try {
+      // Lofty loads the Ads tag but doesn't configure it until its own
+      // conversion fires, so configure it here. No page view: this is not a
+      // page load, and a second one would skew remarketing counts.
+      window.gtag('config', ADS_TAG_ID, { send_page_view: false, allow_enhanced_conversions: true });
+      window.gtag('event', 'conversion', params);
+      console.log('[otp] Verified lead reported to Google Ads (' + how + '), lead ID:', capturedLeadId || '(none)');
+    } catch (err) {
+      console.error('[otp] Verified lead report FAILED:', err);
+    }
   }
 
   // A number that can't receive SMS (a landline, by default) is still a real
@@ -321,6 +422,7 @@
   function showNoSmsNotice(overlay, noteEl, e164, message) {
     if (noteEl.dataset.savedFor !== e164) {
       pushPhoneToLofty(e164);
+      reportVerifiedLead(e164, 'no_sms');
       noteEl.dataset.savedFor = e164;
     }
     noteEl.textContent = message + ' To get text alerts, enter a mobile number instead.';
@@ -1133,16 +1235,17 @@
       busy = true;
       setMessage('Checking...', 'info');
       try {
-        const res = await post('/verify-otp', {
+        const res = await post('/verify-otp', Object.assign({
           phoneNumber: phone,
           otp: code,
           leadId: capturedLeadId,
           email: capturedEmail
-        });
+        }, getClickIds()));
         const data = await res.json();
         if (data && data.status === 'approved') {
           verified = true;
           clearInterval(expiryTimer);
+          reportVerifiedLead(phone, 'otp');
           if (ZAPIER_HOOK) {
             fetch(ZAPIER_HOOK, {
               method: 'POST', headers: HEADERS,

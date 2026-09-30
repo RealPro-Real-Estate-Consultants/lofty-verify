@@ -186,6 +186,20 @@ function lineTypeStatus(lookup) {
   return 'resolved';
 }
 
+// Google Ads click IDs captured by otp.js, passed through to Lofty so a lead can
+// be traced back to the ad click (offline conversion imports, retractions).
+// Always present in the payload, empty when absent, so Zap field mappings stay
+// stable. Anything that isn't a plain token is dropped rather than forwarded.
+const CLICK_ID_PATTERN = /^[A-Za-z0-9_-]{1,200}$/;
+function adClickIds(body) {
+  const ids = {};
+  for (const key of ['gclid', 'gbraid', 'wbraid']) {
+    const value = body[key];
+    ids[key] = typeof value === 'string' && CLICK_ID_PATTERN.test(value) ? value : '';
+  }
+  return ids;
+}
+
 // Running tally since the last deploy, exposed at GET /lookup-stats. Counted in
 // /send-verification only — that is the one place a gate decision is made, so
 // the numbers stay a clean per-attempt denominator. Aggregates only: no phone
@@ -373,7 +387,8 @@ app.post('/update-lead-phone', async (req, res) => {
         lineType: lookup.type,
         carrier: lookup.carrier,
         lineTypeFlagged: lookup.policy === 'flag' ? 'Yes' : 'No',
-        lineTypeStatus: lineTypeStatus(lookup)
+        lineTypeStatus: lineTypeStatus(lookup),
+        ...adClickIds(req.body)
       })
     });
     console.log('Phone update triggered — leadId: ' + (req.body.leadId || '(none)') + ', email: ' + req.body.email + ', phone: ' + e164 + ', line type: ' + lookup.type);
@@ -409,7 +424,8 @@ app.post('/verify-otp', async (req, res) => {
             lineType: lookup.type,
             carrier: lookup.carrier,
             lineTypeFlagged: lookup.policy === 'flag' ? 'Yes' : 'No',
-            lineTypeStatus: lineTypeStatus(lookup)
+            lineTypeStatus: lineTypeStatus(lookup),
+            ...adClickIds(req.body)
           })
         });
         console.log('Zapier notified for +' + req.body.phoneNumber + ' (line type: ' + lookup.type + ')');

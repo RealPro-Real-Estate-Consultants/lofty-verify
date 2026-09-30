@@ -157,6 +157,31 @@ function check(name, fn) {
     assert.strictEqual(zapierPayloads[0].lineTypeFlagged, 'Yes');
   });
 
+  // Google Ads click IDs pass through to Lofty on both Zaps
+  zapierPayloads = [];
+  await post('/update-lead-phone', { phoneNumber: '15551230001', email: 'a@b.com', leadId: '1',
+                                     gclid: 'Cj0KCQjw-abc_123', gbraid: '0AAAAA-xyz' });
+  await post('/verify-otp', { phoneNumber: '15551230001', otp: '123456', email: 'a@b.com',
+                              gclid: 'Cj0KCQjw-abc_123' });
+  check('click IDs reach Lofty on both Zaps', () => {
+    assert.strictEqual(zapierPayloads.length, 2);
+    assert.strictEqual(zapierPayloads[0].gclid, 'Cj0KCQjw-abc_123');
+    assert.strictEqual(zapierPayloads[0].gbraid, '0AAAAA-xyz');
+    assert.strictEqual(zapierPayloads[0].wbraid, '', 'absent ID is an empty string');
+    assert.strictEqual(zapierPayloads[1].gclid, 'Cj0KCQjw-abc_123');
+  });
+
+  zapierPayloads = [];
+  await post('/update-lead-phone', { phoneNumber: '15551230001', email: 'a@b.com', leadId: '1' });
+  await post('/update-lead-phone', { phoneNumber: '15551230001', email: 'a@b.com', leadId: '1',
+                                     gclid: '<script>x</script>', wbraid: { a: 1 } });
+  check('missing or malformed click IDs become empty strings', () => {
+    assert.deepStrictEqual(
+      [zapierPayloads[0].gclid, zapierPayloads[0].gbraid, zapierPayloads[0].wbraid], ['', '', '']);
+    assert.strictEqual(zapierPayloads[1].gclid, '');
+    assert.strictEqual(zapierPayloads[1].wbraid, '');
+  });
+
   // STATS_TOKEN is read per-request, so it can be toggled live.
   const openAccess = await getStats();
   check('stats are open when STATS_TOKEN is unset', () => {
